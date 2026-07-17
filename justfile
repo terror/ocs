@@ -40,7 +40,7 @@ forbid:
 
 [group: 'misc']
 install:
-  cargo install -f null
+  cargo install -f ocs
 
 [group: 'dev']
 install-dev-deps:
