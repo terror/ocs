@@ -10,9 +10,14 @@ pub(crate) struct SessionItem {
 
 impl SessionItem {
   pub(crate) fn new(storage: &Storage, session: &Session) -> Self {
+    let project = Path::new(&session.directory)
+      .file_name()
+      .and_then(|name| name.to_str())
+      .unwrap_or(&session.directory);
+
     Self {
       data_dir: storage.data_dir.clone(),
-      display: format!("{}  {}", session.title, session.directory),
+      display: format!("{} • {project}", session.title),
       id: session.id.clone(),
       preview: OnceLock::new(),
       search_text: session.search_text(),
@@ -47,5 +52,24 @@ impl SkimItem for SessionItem {
 
   fn text(&self) -> Cow<'_, str> {
     Cow::Borrowed(&self.search_text)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn displays_the_project_name() {
+    let storage = Storage::new("/tmp/foo".into());
+    let session = Session {
+      directory: "/tmp/bar".into(),
+      id: "ses_foo".into(),
+      messages: Vec::new(),
+      time: Time::default(),
+      title: "foo".into(),
+    };
+
+    assert_eq!(SessionItem::new(&storage, &session).display, "foo • bar");
   }
 }
