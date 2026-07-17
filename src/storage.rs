@@ -4,12 +4,6 @@ pub(crate) struct Storage {
   pub(crate) data_dir: PathBuf,
 }
 
-struct Part {
-  pub(crate) kind: String,
-  pub(crate) message_id: String,
-  pub(crate) text: String,
-}
-
 impl Storage {
   pub(crate) fn default() -> Result<Self> {
     let data_home = env::var_os("XDG_DATA_HOME")
@@ -109,11 +103,11 @@ impl Storage {
 
       statement
         .query_map([id], |row| {
-          Ok(Part {
-            message_id: row.get(0)?,
-            kind: row.get(1)?,
-            text: row.get(2)?,
-          })
+          Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+          ))
         })
         .context("could not read OpenCode parts")?
         .collect::<rusqlite::Result<Vec<_>>>()
@@ -125,11 +119,11 @@ impl Storage {
       .map(|message| (message.id.clone(), message))
       .collect::<HashMap<_, _>>();
 
-    for part in parts {
-      if part.kind == "text"
-        && let Some(message) = messages.get_mut(&part.message_id)
+    for (message_id, kind, text) in parts {
+      if kind == "text"
+        && let Some(message) = messages.get_mut(&message_id)
       {
-        message.push_text(&part.text);
+        message.push_text(&text);
       }
     }
 
@@ -263,15 +257,6 @@ impl Storage {
       })
       .collect::<Vec<_>>();
 
-    let parts = parts
-      .into_iter()
-      .map(|(message_id, text)| Part {
-        kind: "text".into(),
-        message_id,
-        text,
-      })
-      .collect::<Vec<_>>();
-
     let session_indexes = sessions
       .iter()
       .enumerate()
@@ -287,11 +272,9 @@ impl Storage {
       })
       .collect::<HashMap<_, _>>();
 
-    for part in parts {
-      if part.kind == "text"
-        && let Some((_, message)) = messages.get_mut(&part.message_id)
-      {
-        message.push_text(&part.text);
+    for (message_id, text) in parts {
+      if let Some((_, message)) = messages.get_mut(&message_id) {
+        message.push_text(&text);
       }
     }
 
