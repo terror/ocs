@@ -1,15 +1,10 @@
 use super::*;
 
-#[derive(Deserialize)]
 pub(crate) struct Message {
   pub(crate) id: String,
-  #[serde(default)]
   pub(crate) role: String,
-  #[serde(rename = "sessionID")]
   pub(crate) session_id: String,
-  #[serde(default)]
   pub(crate) text: String,
-  #[serde(default)]
   pub(crate) time: Time,
 }
 

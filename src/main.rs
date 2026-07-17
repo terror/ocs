@@ -5,7 +5,6 @@ use {
   message::Message,
   ratatui::text::Line,
   rusqlite::{Connection, OpenFlags, OptionalExtension},
-  serde::Deserialize,
   session::Session,
   session_item::SessionItem,
   session_picker::SessionPicker,
@@ -13,7 +12,7 @@ use {
   std::{
     borrow::Cow,
     collections::HashMap,
-    env, fs,
+    env,
     path::{Path, PathBuf},
     process::{self, Command},
     sync::OnceLock,

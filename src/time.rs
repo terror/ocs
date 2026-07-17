@@ -1,9 +1,5 @@
-use super::*;
-
-#[derive(Default, Deserialize)]
+#[derive(Default)]
 pub(crate) struct Time {
-  #[serde(default)]
   pub(crate) created: u64,
-  #[serde(default)]
   pub(crate) updated: u64,
 }

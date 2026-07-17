@@ -3,16 +3,11 @@ use super::*;
 const MAX_SEARCH_MESSAGE_CHARS: usize = 512;
 const MAX_SEARCH_MESSAGES: usize = 4;
 
-#[derive(Deserialize)]
 pub(crate) struct Session {
-  #[serde(default)]
   pub(crate) directory: String,
   pub(crate) id: String,
-  #[serde(default)]
   pub(crate) messages: Vec<Message>,
-  #[serde(default)]
   pub(crate) time: Time,
-  #[serde(default)]
   pub(crate) title: String,
 }
 

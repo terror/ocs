@@ -4,13 +4,9 @@ pub(crate) struct Storage {
   pub(crate) data_dir: PathBuf,
 }
 
-#[derive(Deserialize)]
 struct Part {
-  #[serde(rename = "type")]
   pub(crate) kind: String,
-  #[serde(rename = "messageID")]
   pub(crate) message_id: String,
-  #[serde(default)]
   pub(crate) text: String,
 }
 
@@ -33,28 +29,15 @@ impl Storage {
   }
 
   pub(crate) fn session(&self, id: &str) -> Result<Session> {
-    let storage = self.data_dir.join("storage");
     let database = self.data_dir.join("opencode.db");
 
-    if database.is_file() {
-      database_session(&database, id)
-    } else {
-      json_sessions(&storage)?
-        .into_iter()
-        .find(|session| session.id == id)
-        .context("selected session was not indexed")
-    }
+    database_session(&database, id)
   }
 
   pub(crate) fn sessions(&self) -> Result<Vec<Session>> {
-    let storage = self.data_dir.join("storage");
     let database = self.data_dir.join("opencode.db");
 
-    let mut sessions = if database.is_file() {
-      database_sessions(&database)?
-    } else {
-      json_sessions(&storage)?
-    };
+    let mut sessions = database_sessions(&database)?;
 
     sessions.sort_by(|left, right| {
       right
@@ -298,25 +281,6 @@ fn database_session(database: &Path, id: &str) -> Result<Session> {
   )
 }
 
-fn json_sessions(storage: &Path) -> Result<Vec<Session>> {
-  let sessions = json_files(&storage.join("session"))?
-    .into_iter()
-    .map(|path| read_json::<Session>(&path))
-    .collect::<Result<Vec<_>>>()?;
-
-  let messages = json_files(&storage.join("message"))?
-    .into_iter()
-    .map(|path| read_json::<Message>(&path))
-    .collect::<Result<Vec<_>>>()?;
-
-  let parts = json_files(&storage.join("part"))?
-    .into_iter()
-    .map(|path| read_json::<Part>(&path))
-    .collect::<Result<Vec<_>>>()?;
-
-  Ok(index_sessions(sessions, messages, parts))
-}
-
 fn timestamp(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
   u64::try_from(row.get::<_, i64>(index)?).map_err(|error| {
     rusqlite::Error::FromSqlConversionFailure(
@@ -366,107 +330,9 @@ fn index_sessions(
   sessions
 }
 
-fn json_files(directory: &Path) -> Result<Vec<PathBuf>> {
-  let mut paths = Vec::<PathBuf>::new();
-
-  let entries = match fs::read_dir(directory) {
-    Ok(entries) => entries,
-    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-      return Ok(paths);
-    }
-    Err(error) => {
-      return Err(error).with_context(|| {
-        format!(
-          "could not read OpenCode storage directory {}",
-          directory.display()
-        )
-      });
-    }
-  };
-
-  for entry in entries {
-    let path = entry
-      .with_context(|| {
-        format!("could not read entry in {}", directory.display())
-      })?
-      .path();
-
-    if path.is_dir() {
-      paths.extend(json_files(&path)?);
-    } else if path
-      .extension()
-      .is_some_and(|extension| extension == "json")
-    {
-      paths.push(path);
-    }
-  }
-
-  paths.sort();
-  Ok(paths)
-}
-
-fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
-  let contents = fs::read(path)
-    .with_context(|| format!("could not read {}", path.display()))?;
-
-  serde_json::from_slice(&contents)
-    .with_context(|| format!("could not parse {}", path.display()))
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
-
-  #[test]
-  fn indexes_text_parts_and_orders_the_preview() {
-    let temp = tempfile::tempdir().unwrap();
-    let storage = temp.path().join("storage");
-    let session = storage.join("session/project/ses_foo.json");
-    let message_one = storage.join("message/ses_foo/msg_one.json");
-    let message_two = storage.join("message/ses_foo/msg_two.json");
-    let part_one = storage.join("part/msg_one/prt_one.json");
-    let part_two = storage.join("part/msg_two/prt_two.json");
-
-    for path in [&session, &message_one, &message_two, &part_one, &part_two] {
-      fs::create_dir_all(path.parent().unwrap()).unwrap();
-    }
-    fs::write(
-      session,
-      r#"{"id":"ses_foo","title":"Add picker","directory":"/tmp/foo","time":{"updated":2}}"#,
-    )
-    .unwrap();
-    fs::write(
-      message_one,
-      r#"{"id":"msg_one","sessionID":"ses_foo","role":"assistant","time":{"created":2}}"#,
-    )
-    .unwrap();
-    fs::write(
-      message_two,
-      r#"{"id":"msg_two","sessionID":"ses_foo","role":"user","time":{"created":1}}"#,
-    )
-    .unwrap();
-    fs::write(
-      part_one,
-      r#"{"messageID":"msg_one","type":"text","text":"Use skim"}"#,
-    )
-    .unwrap();
-    fs::write(
-      part_two,
-      r#"{"messageID":"msg_two","type":"text","text":"Build a picker"}"#,
-    )
-    .unwrap();
-
-    let sessions = Storage::new(temp.path().to_owned()).sessions().unwrap();
-
-    assert_eq!(
-      sessions[0].search_text(),
-      "Add picker\n/tmp/foo\nses_foo\nBuild a picker"
-    );
-    assert_eq!(
-      sessions[0].preview(),
-      "\x1b[1;38;5;255mAdd picker\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m/tmp/foo\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248mses_foo\x1b[0m\n\n\x1b[1;38;5;230mUSER\x1b[0m\nBuild a picker\n\n\x1b[1;38;5;255mASSISTANT\x1b[0m\nUse skim"
-    );
-  }
 
   #[test]
   fn indexes_sqlite_sessions() {
