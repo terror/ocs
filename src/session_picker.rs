@@ -15,7 +15,7 @@ impl<'a> SessionPicker<'a> {
 
     options
       .height("100%")
-      .prompt("ocs> ")
+      .prompt("> ")
       .header(
         "\x1b[2m↑/↓ up/down • type to search • enter open • esc cancel\x1b[0m",
       )
