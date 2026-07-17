@@ -25,9 +25,9 @@ impl<'a> SessionPicker<'a> {
     options
       .height("100%")
       .prompt("> ")
-      .bind(vec!["change:top".into()])
+      .bind(vec!["change:top".into(), "ctrl-d:accept(delete)".into()])
       .header(
-        "\x1b[2m↑/↓ up/down • type to search • enter open • esc cancel\x1b[0m",
+        "\x1b[2m↑/↓ up/down • type to search • enter open • ctrl-d delete • esc cancel\x1b[0m",
       )
       .no_hscroll(true)
       .preview("")
@@ -42,7 +42,7 @@ impl<'a> SessionPicker<'a> {
       .context("could not configure the session picker")
   }
 
-  pub(crate) fn pick(self) -> Result<Option<String>> {
+  pub(crate) fn pick(self) -> Result<Option<Selection>> {
     let options = Self::options(self.query)?;
 
     let (sender, receiver): (SkimItemSender, SkimItemReceiver) = unbounded();
@@ -68,12 +68,21 @@ impl<'a> SessionPicker<'a> {
       return Ok(None);
     }
 
-    Ok(
-      output
-        .selected_items
-        .first()
-        .map(|item| item.output().into_owned()),
-    )
+    let Some(item) = output.selected_items.first() else {
+      return Ok(None);
+    };
+
+    let id = item.output().into_owned();
+
+    if matches!(output.final_event, Event::Action(Action::Accept(Some(ref action))) if action == "delete")
+    {
+      return Ok(Some(Selection::Delete {
+        id,
+        query: output.query,
+      }));
+    }
+
+    Ok(Some(Selection::Open(id)))
   }
 }
 
@@ -88,6 +97,9 @@ mod tests {
 
   #[test]
   fn selects_the_top_match_when_the_query_changes() {
-    assert_eq!(SessionPicker::options(None).unwrap().bind, ["change:top"]);
+    assert_eq!(
+      SessionPicker::options(None).unwrap().bind,
+      ["change:top", "ctrl-d:accept(delete)"]
+    );
   }
 }

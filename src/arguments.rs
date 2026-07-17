@@ -18,25 +18,44 @@ impl Arguments {
       None => Storage::default()?,
     };
 
-    let sessions = storage.sessions()?;
+    let mut query = self.query;
 
-    let selected =
-      SessionPicker::new(&storage, &sessions, self.query).pick()?;
+    loop {
+      let sessions = storage.sessions()?;
 
-    let Some(id) = selected else {
-      return Ok(());
-    };
+      let Some(selection) =
+        SessionPicker::new(&storage, &sessions, query).pick()?
+      else {
+        return Ok(());
+      };
 
-    if self.print {
-      println!("{id}");
-      return Ok(());
+      match selection {
+        Selection::Delete {
+          id,
+          query: picker_query,
+        } => {
+          storage.delete(&id)?;
+
+          if sessions.len() == 1 {
+            return Ok(());
+          }
+
+          query = Some(picker_query);
+        }
+        Selection::Open(id) => {
+          if self.print {
+            println!("{id}");
+            return Ok(());
+          }
+
+          let session = sessions
+            .iter()
+            .find(|session| session.id == id)
+            .context("selected session was not indexed")?;
+
+          return session.open();
+        }
+      }
     }
-
-    let session = sessions
-      .iter()
-      .find(|session| session.id == id)
-      .context("selected session was not indexed")?;
-
-    session.open()
   }
 }
