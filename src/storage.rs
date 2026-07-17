@@ -5,37 +5,7 @@ pub(crate) struct Storage {
 }
 
 #[derive(Deserialize)]
-struct StoredSession {
-  #[serde(default)]
-  pub(crate) directory: String,
-  pub(crate) id: String,
-  #[serde(default)]
-  pub(crate) time: StoredTime,
-  #[serde(default)]
-  pub(crate) title: String,
-}
-
-#[derive(Default, Deserialize)]
-struct StoredTime {
-  #[serde(default)]
-  pub(crate) created: u64,
-  #[serde(default)]
-  pub(crate) updated: u64,
-}
-
-#[derive(Deserialize)]
-struct StoredMessage {
-  pub(crate) id: String,
-  #[serde(default)]
-  pub(crate) role: String,
-  #[serde(rename = "sessionID")]
-  pub(crate) session_id: String,
-  #[serde(default)]
-  pub(crate) time: StoredTime,
-}
-
-#[derive(Deserialize)]
-struct StoredPart {
+struct Part {
   #[serde(rename = "type")]
   pub(crate) kind: String,
   #[serde(rename = "messageID")]
@@ -69,18 +39,8 @@ impl Storage {
 
     let mut sessions = session_paths
       .into_iter()
-      .map(|path| read_json::<StoredSession>(&path))
-      .collect::<Result<Vec<_>>>()?
-      .into_iter()
-      .map(|session| {
-        Session::new(
-          session.directory,
-          session.id,
-          session.title,
-          session.time.updated.max(session.time.created),
-        )
-      })
-      .collect::<Vec<_>>();
+      .map(|path| read_json::<Session>(&path))
+      .collect::<Result<Vec<_>>>()?;
 
     let session_indexes = sessions
       .iter()
@@ -90,26 +50,18 @@ impl Storage {
 
     let mut messages = json_files(&storage.join("message"))?
       .into_iter()
-      .map(|path| read_json::<StoredMessage>(&path))
+      .map(|path| read_json::<Message>(&path))
       .collect::<Result<Vec<_>>>()?
       .into_iter()
       .filter_map(|message| {
         session_indexes
           .get(&message.session_id)
-          .map(|&session_index| {
-            (
-              message.id,
-              (
-                session_index,
-                Message::new(message.role, message.time.created),
-              ),
-            )
-          })
+          .map(|&session_index| (message.id.clone(), (session_index, message)))
       })
       .collect::<HashMap<_, _>>();
 
     for path in json_files(&storage.join("part"))? {
-      let part = read_json::<StoredPart>(&path)?;
+      let part = read_json::<Part>(&path)?;
 
       if part.kind == "text"
         && let Some((_, message)) = messages.get_mut(&part.message_id)
@@ -128,8 +80,8 @@ impl Storage {
 
     sessions.sort_by(|left, right| {
       right
-        .updated
-        .cmp(&left.updated)
+        .updated()
+        .cmp(&left.updated())
         .then_with(|| left.title.cmp(&right.title))
     });
 

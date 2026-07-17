@@ -1,29 +1,19 @@
 use super::*;
 
+#[derive(Deserialize)]
 pub(crate) struct Session {
+  #[serde(default)]
   pub(crate) directory: String,
   pub(crate) id: String,
+  #[serde(default)]
   pub(crate) messages: Vec<Message>,
+  #[serde(default)]
+  pub(crate) time: Time,
+  #[serde(default)]
   pub(crate) title: String,
-  pub(crate) updated: u64,
 }
 
 impl Session {
-  pub(crate) fn new(
-    directory: String,
-    id: String,
-    title: String,
-    updated: u64,
-  ) -> Self {
-    Self {
-      directory,
-      id,
-      messages: Vec::new(),
-      title,
-      updated,
-    }
-  }
-
   pub(crate) fn open(&self) -> Result {
     let mut command = Command::new("opencode");
 
@@ -87,6 +77,10 @@ impl Session {
   }
 
   pub(crate) fn sort_messages(&mut self) {
-    self.messages.sort_by_key(|message| message.created);
+    self.messages.sort_by_key(|message| message.time.created);
+  }
+
+  pub(crate) fn updated(&self) -> u64 {
+    self.time.updated.max(self.time.created)
   }
 }
