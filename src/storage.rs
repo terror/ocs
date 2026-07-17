@@ -336,7 +336,7 @@ mod tests {
 
     assert_eq!(
       sessions[0].search_text(),
-      "Add picker\n/tmp/foo\nBuild a picker\nUse skim"
+      "Add picker\n/tmp/foo\nses_foo\nBuild a picker"
     );
     assert_eq!(
       sessions[0].preview(),
@@ -384,7 +384,7 @@ mod tests {
 
     assert_eq!(
       sessions[0].search_text(),
-      "Add picker\n/tmp/foo\nBuild a picker\nUse skim"
+      "Add picker\n/tmp/foo\nses_foo\nBuild a picker"
     );
   }
 }
