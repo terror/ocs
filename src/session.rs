@@ -1,80 +1,67 @@
 use super::*;
 
 pub(crate) struct Session {
-  id: String,
-  title: String,
   directory: String,
-  updated: u64,
+  id: String,
   messages: Vec<Message>,
+  title: String,
+  updated: u64,
 }
 
 pub(crate) struct Message {
-  role: String,
   created: u64,
+  role: String,
   text: String,
 }
 
 pub(crate) struct SessionPicker<'a> {
-  sessions: &'a [Session],
   query: Option<String>,
+  sessions: &'a [Session],
 }
 
 struct SessionItem {
-  id: String,
-  search_text: String,
   display: String,
+  id: String,
   preview: String,
+  search_text: String,
 }
 
 impl Session {
-  pub(crate) fn new(
-    id: String,
-    title: String,
-    directory: String,
-    updated: u64,
-  ) -> Self {
-    Self {
-      id,
-      title,
-      directory,
-      updated,
-      messages: Vec::new(),
-    }
-  }
-
   pub(crate) fn id(&self) -> &str {
     &self.id
   }
 
-  pub(crate) fn updated(&self) -> u64 {
-    self.updated
+  pub(crate) fn new(
+    directory: String,
+    id: String,
+    title: String,
+    updated: u64,
+  ) -> Self {
+    Self {
+      directory,
+      id,
+      messages: Vec::new(),
+      title,
+      updated,
+    }
   }
 
-  pub(crate) fn title(&self) -> &str {
-    &self.title
-  }
+  pub(crate) fn open(&self) -> Result {
+    let mut command = Command::new("opencode");
 
-  pub(crate) fn push_message(&mut self, message: Message) {
-    self.messages.push(message);
-  }
+    command.arg("--session").arg(&self.id);
 
-  pub(crate) fn sort_messages(&mut self) {
-    self.messages.sort_by_key(|message| message.created);
-  }
-
-  pub(crate) fn search_text(&self) -> String {
-    let mut search_text = format!("{}\n{}", self.title, self.directory);
-
-    for message in self
-      .messages
-      .iter()
-      .filter(|message| !message.text.is_empty())
-    {
-      search_text.push('\n');
-      search_text.push_str(&message.text);
+    if Path::new(&self.directory).is_dir() {
+      command.current_dir(&self.directory);
     }
 
-    search_text
+    let status = command.status().context("could not start opencode")?;
+
+    if !status.success() {
+      bail!("opencode exited with {status}");
+    }
+
+    Ok(())
   }
 
   pub(crate) fn preview(&self) -> String {
@@ -102,30 +89,43 @@ impl Session {
     preview
   }
 
-  pub(crate) fn open(&self) -> Result {
-    let mut command = Command::new("opencode");
+  pub(crate) fn push_message(&mut self, message: Message) {
+    self.messages.push(message);
+  }
 
-    command.arg("--session").arg(&self.id);
+  pub(crate) fn search_text(&self) -> String {
+    let mut search_text = format!("{}\n{}", self.title, self.directory);
 
-    if Path::new(&self.directory).is_dir() {
-      command.current_dir(&self.directory);
+    for message in self
+      .messages
+      .iter()
+      .filter(|message| !message.text.is_empty())
+    {
+      search_text.push('\n');
+      search_text.push_str(&message.text);
     }
 
-    let status = command.status().context("could not start opencode")?;
+    search_text
+  }
 
-    if !status.success() {
-      bail!("opencode exited with {status}");
-    }
+  pub(crate) fn sort_messages(&mut self) {
+    self.messages.sort_by_key(|message| message.created);
+  }
 
-    Ok(())
+  pub(crate) fn title(&self) -> &str {
+    &self.title
+  }
+
+  pub(crate) fn updated(&self) -> u64 {
+    self.updated
   }
 }
 
 impl Message {
   pub(crate) fn new(role: String, created: u64) -> Self {
     Self {
-      role,
       created,
+      role,
       text: String::new(),
     }
   }
@@ -141,7 +141,7 @@ impl Message {
 
 impl<'a> SessionPicker<'a> {
   pub(crate) fn new(sessions: &'a [Session], query: Option<String>) -> Self {
-    Self { sessions, query }
+    Self { query, sessions }
   }
 
   pub(crate) fn pick(self) -> Result<Option<String>> {
@@ -193,28 +193,28 @@ impl<'a> SessionPicker<'a> {
 impl SessionItem {
   fn new(session: &Session) -> Self {
     Self {
-      id: session.id.clone(),
-      search_text: session.search_text(),
       display: format!("{}  {}", session.title, session.directory),
+      id: session.id.clone(),
       preview: session.preview(),
+      search_text: session.search_text(),
     }
   }
 }
 
 impl SkimItem for SessionItem {
-  fn text(&self) -> Cow<'_, str> {
-    Cow::Borrowed(&self.search_text)
-  }
-
   fn display(&self, _context: DisplayContext) -> ratatui::text::Line<'_> {
     ratatui::text::Line::from(self.display.as_str())
+  }
+
+  fn output(&self) -> Cow<'_, str> {
+    Cow::Borrowed(&self.id)
   }
 
   fn preview(&self, _context: PreviewContext) -> ItemPreview {
     ItemPreview::Text(self.preview.clone())
   }
 
-  fn output(&self) -> Cow<'_, str> {
-    Cow::Borrowed(&self.id)
+  fn text(&self) -> Cow<'_, str> {
+    Cow::Borrowed(&self.search_text)
   }
 }

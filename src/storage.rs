@@ -8,13 +8,13 @@ pub(crate) struct Storage {
 
 #[derive(Deserialize)]
 struct StoredSession {
-  id: String,
-  #[serde(default)]
-  title: String,
   #[serde(default)]
   directory: String,
+  id: String,
   #[serde(default)]
   time: StoredTime,
+  #[serde(default)]
+  title: String,
 }
 
 #[derive(Default, Deserialize)]
@@ -28,29 +28,25 @@ struct StoredTime {
 #[derive(Deserialize)]
 struct StoredMessage {
   id: String,
-  #[serde(rename = "sessionID")]
-  session_id: String,
   #[serde(default)]
   role: String,
+  #[serde(rename = "sessionID")]
+  session_id: String,
   #[serde(default)]
   time: StoredTime,
 }
 
 #[derive(Deserialize)]
 struct StoredPart {
-  #[serde(rename = "messageID")]
-  message_id: String,
   #[serde(rename = "type")]
   kind: String,
+  #[serde(rename = "messageID")]
+  message_id: String,
   #[serde(default)]
   text: String,
 }
 
 impl Storage {
-  pub(crate) fn new(data_dir: PathBuf) -> Self {
-    Self { data_dir }
-  }
-
   pub(crate) fn default() -> Result<Self> {
     let data_home = env::var_os("XDG_DATA_HOME")
       .map(PathBuf::from)
@@ -62,6 +58,10 @@ impl Storage {
       )?;
 
     Ok(Self::new(data_home.join("opencode")))
+  }
+
+  pub(crate) fn new(data_dir: PathBuf) -> Self {
+    Self { data_dir }
   }
 
   pub(crate) fn sessions(&self) -> Result<Vec<Session>> {
@@ -76,9 +76,9 @@ impl Storage {
       .into_iter()
       .map(|session| {
         Session::new(
+          session.directory,
           session.id,
           session.title,
-          session.directory,
           session.time.updated.max(session.time.created),
         )
       })
