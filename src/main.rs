@@ -1,10 +1,9 @@
 use {
   anyhow::{Context, bail},
   arguments::Arguments,
-  session::{SessionPicker, Session, Message},
-  storage::Storage,
   clap::Parser,
   serde::Deserialize,
+  session::{Message, Session, SessionPicker},
   skim::prelude::*,
   std::{
     borrow::Cow,
@@ -13,6 +12,7 @@ use {
     path::{Path, PathBuf},
     process::{self, Command},
   },
+  storage::Storage,
 };
 
 mod arguments;

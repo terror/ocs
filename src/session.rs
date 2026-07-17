@@ -154,7 +154,7 @@ impl<'a> SessionPicker<'a> {
         "Enter: open session  Esc: cancel  Search titles, paths, and chat text",
       )
       .preview("")
-      .preview_window("right:60%:wrap");
+      .preview_window("down:50%:wrap");
 
     if let Some(query) = self.query {
       options.query(query);
