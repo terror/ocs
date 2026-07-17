@@ -2,10 +2,11 @@ use {
   anyhow::{Context, bail},
   arguments::Arguments,
   clap::Parser,
+  message::Message,
   ratatui::text::Line,
-  session_item::SessionItem,
   serde::Deserialize,
-  session::{Message, Session, SessionPicker},
+  session::{Session, SessionPicker},
+  session_item::SessionItem,
   skim::prelude::*,
   std::{
     borrow::Cow,
@@ -18,6 +19,7 @@ use {
 };
 
 mod arguments;
+mod message;
 mod session;
 mod session_item;
 mod storage;

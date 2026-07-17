@@ -8,12 +8,6 @@ pub(crate) struct Session {
   updated: u64,
 }
 
-pub(crate) struct Message {
-  created: u64,
-  role: String,
-  text: String,
-}
-
 pub(crate) struct SessionPicker<'a> {
   query: Option<String>,
   sessions: &'a [Session],
@@ -70,13 +64,13 @@ impl Session {
     for message in self
       .messages
       .iter()
-      .filter(|message| !message.text.is_empty())
+      .filter(|message| !message.text().is_empty())
     {
       message_count += 1;
       preview.push_str("\n\n");
-      preview.push_str(&message.role.to_uppercase());
+      preview.push_str(&message.role().to_uppercase());
       preview.push_str(":\n");
-      preview.push_str(&message.text);
+      preview.push_str(message.text());
     }
 
     if message_count == 0 {
@@ -96,17 +90,17 @@ impl Session {
     for message in self
       .messages
       .iter()
-      .filter(|message| !message.text.is_empty())
+      .filter(|message| !message.text().is_empty())
     {
       search_text.push('\n');
-      search_text.push_str(&message.text);
+      search_text.push_str(message.text());
     }
 
     search_text
   }
 
   pub(crate) fn sort_messages(&mut self) {
-    self.messages.sort_by_key(|message| message.created);
+    self.messages.sort_by_key(Message::created);
   }
 
   pub(crate) fn title(&self) -> &str {
@@ -115,24 +109,6 @@ impl Session {
 
   pub(crate) fn updated(&self) -> u64 {
     self.updated
-  }
-}
-
-impl Message {
-  pub(crate) fn new(role: String, created: u64) -> Self {
-    Self {
-      created,
-      role,
-      text: String::new(),
-    }
-  }
-
-  pub(crate) fn push_text(&mut self, text: &str) {
-    if !self.text.is_empty() {
-      self.text.push('\n');
-    }
-
-    self.text.push_str(text);
   }
 }
 
