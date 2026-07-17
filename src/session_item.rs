@@ -32,7 +32,7 @@ impl SkimItem for SessionItem {
     Line::from(vec![
       Span::raw(self.title.as_str()),
       Span::raw(" "),
-      Span::styled(self.project.as_str(), Style::new().fg(Color::DarkGray)),
+      Span::styled(self.project.as_str(), Style::new().fg(DARK_GRAY)),
     ])
   }
 
@@ -68,6 +68,7 @@ mod tests {
   #[test]
   fn displays_the_project_name() {
     let storage = Storage::new("/tmp/foo".into());
+
     let session = Session {
       directory: "/tmp/bar".into(),
       id: "ses_foo".into(),
@@ -77,11 +78,12 @@ mod tests {
     };
 
     let item = SessionItem::new(&storage, &session);
+
     let display = item.display(DisplayContext::default());
 
     assert_eq!(display.spans[0].content, "foo");
     assert_eq!(display.spans[1].content, " ");
     assert_eq!(display.spans[2].content, "bar");
-    assert_eq!(display.spans[2].style.fg, Some(Color::DarkGray));
+    assert_eq!(display.spans[2].style.fg, Some(DARK_GRAY));
   }
 }

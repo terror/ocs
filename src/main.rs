@@ -18,11 +18,16 @@ use {
     borrow::Cow,
     collections::HashMap,
     env,
+    fmt::{self, Display, Formatter, Write},
     path::{Path, PathBuf},
     process::{self, Command},
     sync::OnceLock,
   },
   storage::Storage,
+  style::{
+    BOLD_BRIGHT_WHITE, BOLD_GRAY, BOLD_YELLOW, DARK_GRAY, DIM, DIM_LIGHT_GRAY,
+    GRAY, style,
+  },
   time::Time,
 };
 
@@ -34,6 +39,7 @@ mod session;
 mod session_item;
 mod session_picker;
 mod storage;
+mod style;
 mod time;
 
 type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;

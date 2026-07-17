@@ -32,8 +32,12 @@ impl Session {
 
   pub(crate) fn preview(&self) -> String {
     let mut preview = format!(
-      "\x1b[1;38;5;255m{}\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m{}\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248m{}\x1b[0m",
-      self.title, self.directory, self.id
+      "{}\n{}  {}\n{}    {}",
+      style(BOLD_BRIGHT_WHITE, &self.title),
+      style(GRAY, "Directory"),
+      style(DIM_LIGHT_GRAY, &self.directory),
+      style(GRAY, "Session"),
+      style(DIM_LIGHT_GRAY, &self.id),
     );
 
     let mut message_count = 0;
@@ -44,20 +48,30 @@ impl Session {
       .filter(|message| !message.text.is_empty())
     {
       message_count += 1;
+
       preview.push_str("\n\n");
-      preview.push_str(match message.role.as_str() {
-        "user" => "\x1b[1;38;5;230mUSER\x1b[0m",
-        "assistant" => "\x1b[1;38;5;255mASSISTANT\x1b[0m",
-        _ => "\x1b[1;38;5;244mMESSAGE\x1b[0m",
-      });
+
+      preview.push_str(
+        &match message.role.as_str() {
+          "user" => style(BOLD_YELLOW, "USER"),
+          "assistant" => style(BOLD_BRIGHT_WHITE, "ASSISTANT"),
+          _ => style(BOLD_GRAY, "MESSAGE"),
+        }
+        .to_string(),
+      );
+
       preview.push('\n');
+
       preview.push_str(&message.text);
     }
 
     if message_count == 0 {
-      preview.push_str(
-        "\n\n\x1b[2;38;5;248mNo text messages stored for this session.\x1b[0m",
-      );
+      write!(
+        preview,
+        "\n\n{}",
+        style(DIM_LIGHT_GRAY, "No text messages stored for this session.")
+      )
+      .unwrap();
     }
 
     preview
@@ -79,11 +93,13 @@ impl Session {
       .take(MAX_SEARCH_MESSAGES)
     {
       search_text.push('\n');
+
       let end = message
         .text
         .char_indices()
         .nth(MAX_SEARCH_MESSAGE_CHARS)
         .map_or(message.text.len(), |(index, _)| index);
+
       search_text.push_str(&message.text[..end]);
     }
 
