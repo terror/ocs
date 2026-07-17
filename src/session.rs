@@ -181,6 +181,10 @@ impl<'a> SessionPicker<'a> {
     let output = Skim::run_with(options, Some(receiver))
       .map_err(|error| anyhow::anyhow!("session picker failed: {error:?}"))?;
 
+    if output.is_abort {
+      return Ok(None);
+    }
+
     Ok(
       output
         .selected_items
