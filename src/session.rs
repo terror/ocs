@@ -48,7 +48,9 @@ impl Session {
       .filter(|message| !message.text.is_empty())
     {
       message_count += 1;
+
       preview.push_str("\n\n");
+
       preview.push_str(
         &match message.role.as_str() {
           "user" => style(BOLD_YELLOW, "USER"),
@@ -57,7 +59,9 @@ impl Session {
         }
         .to_string(),
       );
+
       preview.push('\n');
+
       preview.push_str(&message.text);
     }
 
@@ -87,11 +91,13 @@ impl Session {
       .take(MAX_SEARCH_MESSAGES)
     {
       search_text.push('\n');
+
       let end = message
         .text
         .char_indices()
         .nth(MAX_SEARCH_MESSAGE_CHARS)
         .map_or(message.text.len(), |(index, _)| index);
+
       search_text.push_str(&message.text[..end]);
     }
 

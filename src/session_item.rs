@@ -68,6 +68,7 @@ mod tests {
   #[test]
   fn displays_the_project_name() {
     let storage = Storage::new("/tmp/foo".into());
+
     let session = Session {
       directory: "/tmp/bar".into(),
       id: "ses_foo".into(),
@@ -77,6 +78,7 @@ mod tests {
     };
 
     let item = SessionItem::new(&storage, &session);
+
     let display = item.display(DisplayContext::default());
 
     assert_eq!(display.spans[0].content, "foo");
