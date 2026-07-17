@@ -14,6 +14,20 @@ struct Part {
   pub(crate) text: String,
 }
 
+#[derive(Deserialize)]
+struct DatabaseMessage {
+  #[serde(default)]
+  role: String,
+}
+
+#[derive(Deserialize)]
+struct DatabasePart {
+  #[serde(rename = "type")]
+  kind: String,
+  #[serde(default)]
+  text: String,
+}
+
 impl Storage {
   pub(crate) fn default() -> Result<Self> {
     let data_home = env::var_os("XDG_DATA_HOME")
@@ -34,49 +48,13 @@ impl Storage {
 
   pub(crate) fn sessions(&self) -> Result<Vec<Session>> {
     let storage = self.data_dir.join("storage");
+    let database = self.data_dir.join("opencode.db");
 
-    let session_paths = json_files(&storage.join("session"))?;
-
-    let mut sessions = session_paths
-      .into_iter()
-      .map(|path| read_json::<Session>(&path))
-      .collect::<Result<Vec<_>>>()?;
-
-    let session_indexes = sessions
-      .iter()
-      .enumerate()
-      .map(|(index, session)| (session.id.clone(), index))
-      .collect::<HashMap<_, _>>();
-
-    let mut messages = json_files(&storage.join("message"))?
-      .into_iter()
-      .map(|path| read_json::<Message>(&path))
-      .collect::<Result<Vec<_>>>()?
-      .into_iter()
-      .filter_map(|message| {
-        session_indexes
-          .get(&message.session_id)
-          .map(|&session_index| (message.id.clone(), (session_index, message)))
-      })
-      .collect::<HashMap<_, _>>();
-
-    for path in json_files(&storage.join("part"))? {
-      let part = read_json::<Part>(&path)?;
-
-      if part.kind == "text"
-        && let Some((_, message)) = messages.get_mut(&part.message_id)
-      {
-        message.push_text(&part.text);
-      }
-    }
-
-    for (_, (session_index, message)) in messages {
-      sessions[session_index].push_message(message);
-    }
-
-    for session in &mut sessions {
-      session.sort_messages();
-    }
+    let mut sessions = if database.is_file() {
+      database_sessions(&database)?
+    } else {
+      json_sessions(&storage)?
+    };
 
     sessions.sort_by(|left, right| {
       right
@@ -91,6 +69,177 @@ impl Storage {
 
     Ok(sessions)
   }
+}
+
+fn database_sessions(database: &Path) -> Result<Vec<Session>> {
+  let connection =
+    Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)
+      .with_context(|| {
+        format!("could not open OpenCode database {}", database.display())
+      })?;
+
+  let sessions = {
+    let mut statement = connection
+      .prepare(
+        "SELECT id, directory, title, time_created, time_updated FROM session",
+      )
+      .context("could not query OpenCode sessions")?;
+
+    statement
+      .query_map([], |row| {
+        Ok(Session {
+          id: row.get(0)?,
+          directory: row.get(1)?,
+          title: row.get(2)?,
+          messages: Vec::new(),
+          time: Time {
+            created: timestamp(row, 3)?,
+            updated: timestamp(row, 4)?,
+          },
+        })
+      })
+      .context("could not read OpenCode sessions")?
+      .collect::<rusqlite::Result<Vec<_>>>()
+      .context("could not read OpenCode sessions")?
+  };
+
+  let messages = {
+    let mut statement = connection
+      .prepare("SELECT id, session_id, time_created, data FROM message")
+      .context("could not query OpenCode messages")?;
+
+    statement
+      .query_map([], |row| {
+        Ok((
+          row.get::<_, String>(0)?,
+          row.get::<_, String>(1)?,
+          timestamp(row, 2)?,
+          row.get::<_, String>(3)?,
+        ))
+      })
+      .context("could not read OpenCode messages")?
+      .collect::<rusqlite::Result<Vec<_>>>()
+      .context("could not read OpenCode messages")?
+  };
+
+  let parts = {
+    let mut statement = connection
+      .prepare("SELECT message_id, data FROM part ORDER BY time_created")
+      .context("could not query OpenCode parts")?;
+
+    statement
+      .query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+      })
+      .context("could not read OpenCode parts")?
+      .collect::<rusqlite::Result<Vec<_>>>()
+      .context("could not read OpenCode parts")?
+  };
+
+  let messages = messages
+    .into_iter()
+    .map(|(id, session_id, created, data)| {
+      let data = serde_json::from_str::<DatabaseMessage>(&data)
+        .with_context(|| format!("could not parse OpenCode message {id}"))?;
+
+      Ok(Message {
+        id,
+        session_id,
+        role: data.role,
+        text: String::new(),
+        time: Time {
+          created,
+          updated: 0,
+        },
+      })
+    })
+    .collect::<Result<Vec<_>>>()?;
+
+  let parts = parts
+    .into_iter()
+    .map(|(message_id, data)| {
+      let data =
+        serde_json::from_str::<DatabasePart>(&data).with_context(|| {
+          format!("could not parse OpenCode part for message {message_id}")
+        })?;
+
+      Ok(Part {
+        kind: data.kind,
+        message_id,
+        text: data.text,
+      })
+    })
+    .collect::<Result<Vec<_>>>()?;
+
+  Ok(index_sessions(sessions, messages, parts))
+}
+
+fn json_sessions(storage: &Path) -> Result<Vec<Session>> {
+  let sessions = json_files(&storage.join("session"))?
+    .into_iter()
+    .map(|path| read_json::<Session>(&path))
+    .collect::<Result<Vec<_>>>()?;
+
+  let messages = json_files(&storage.join("message"))?
+    .into_iter()
+    .map(|path| read_json::<Message>(&path))
+    .collect::<Result<Vec<_>>>()?;
+
+  let parts = json_files(&storage.join("part"))?
+    .into_iter()
+    .map(|path| read_json::<Part>(&path))
+    .collect::<Result<Vec<_>>>()?;
+
+  Ok(index_sessions(sessions, messages, parts))
+}
+
+fn timestamp(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
+  u64::try_from(row.get::<_, i64>(index)?).map_err(|error| {
+    rusqlite::Error::FromSqlConversionFailure(
+      index,
+      rusqlite::types::Type::Integer,
+      Box::new(error),
+    )
+  })
+}
+
+fn index_sessions(
+  mut sessions: Vec<Session>,
+  messages: Vec<Message>,
+  parts: Vec<Part>,
+) -> Vec<Session> {
+  let session_indexes = sessions
+    .iter()
+    .enumerate()
+    .map(|(index, session)| (session.id.clone(), index))
+    .collect::<HashMap<_, _>>();
+
+  let mut messages = messages
+    .into_iter()
+    .filter_map(|message| {
+      session_indexes
+        .get(&message.session_id)
+        .map(|&session_index| (message.id.clone(), (session_index, message)))
+    })
+    .collect::<HashMap<_, _>>();
+
+  for part in parts {
+    if part.kind == "text"
+      && let Some((_, message)) = messages.get_mut(&part.message_id)
+    {
+      message.push_text(&part.text);
+    }
+  }
+
+  for (_, (session_index, message)) in messages {
+    sessions[session_index].push_message(message);
+  }
+
+  for session in &mut sessions {
+    session.sort_messages();
+  }
+
+  sessions
 }
 
 fn json_files(directory: &Path) -> Result<Vec<PathBuf>> {
@@ -192,6 +341,50 @@ mod tests {
     assert_eq!(
       sessions[0].preview(),
       "\x1b[1;38;5;255mAdd picker\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m/tmp/foo\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248mses_foo\x1b[0m\n\n\x1b[1;38;5;230mUSER\x1b[0m\nBuild a picker\n\n\x1b[1;38;5;255mASSISTANT\x1b[0m\nUse skim"
+    );
+  }
+
+  #[test]
+  fn indexes_sqlite_sessions() {
+    let temp = tempfile::tempdir().unwrap();
+    let database = temp.path().join("opencode.db");
+    let connection = Connection::open(database).unwrap();
+
+    connection
+      .execute_batch(
+        r#"
+          CREATE TABLE session (
+            id TEXT NOT NULL,
+            directory TEXT NOT NULL,
+            title TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            time_updated INTEGER NOT NULL
+          );
+          CREATE TABLE message (
+            id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            data TEXT NOT NULL
+          );
+          CREATE TABLE part (
+            message_id TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            data TEXT NOT NULL
+          );
+          INSERT INTO session VALUES ('ses_foo', '/tmp/foo', 'Add picker', 1, 2);
+          INSERT INTO message VALUES ('msg_one', 'ses_foo', 2, '{"role":"assistant"}');
+          INSERT INTO message VALUES ('msg_two', 'ses_foo', 1, '{"role":"user"}');
+          INSERT INTO part VALUES ('msg_one', 2, '{"type":"text","text":"Use skim"}');
+          INSERT INTO part VALUES ('msg_two', 1, '{"type":"text","text":"Build a picker"}');
+        "#,
+      )
+      .unwrap();
+
+    let sessions = Storage::new(temp.path().to_owned()).sessions().unwrap();
+
+    assert_eq!(
+      sessions[0].search_text(),
+      "Add picker\n/tmp/foo\nBuild a picker\nUse skim"
     );
   }
 }

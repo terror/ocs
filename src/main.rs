@@ -4,6 +4,7 @@ use {
   clap::Parser,
   message::Message,
   ratatui::text::Line,
+  rusqlite::{Connection, OpenFlags},
   serde::Deserialize,
   session::Session,
   session_item::SessionItem,
