@@ -3,7 +3,10 @@ use {
   arguments::Arguments,
   clap::Parser,
   message::Message,
-  ratatui::text::Line,
+  ratatui::{
+    style::{Color, Style},
+    text::{Line, Span},
+  },
   row_ext::RowExt,
   rusqlite::{Connection, OpenFlags, OptionalExtension},
   session::Session,

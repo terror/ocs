@@ -2,10 +2,11 @@ use super::*;
 
 pub(crate) struct SessionItem {
   pub(crate) data_dir: PathBuf,
-  pub(crate) display: String,
   pub(crate) id: String,
   pub(crate) preview: OnceLock<String>,
+  pub(crate) project: String,
   pub(crate) search_text: String,
+  pub(crate) title: String,
 }
 
 impl SessionItem {
@@ -17,17 +18,22 @@ impl SessionItem {
 
     Self {
       data_dir: storage.data_dir.clone(),
-      display: format!("{} • {project}", session.title),
       id: session.id.clone(),
       preview: OnceLock::new(),
+      project: project.into(),
       search_text: session.search_text(),
+      title: session.title.clone(),
     }
   }
 }
 
 impl SkimItem for SessionItem {
   fn display(&self, _context: DisplayContext) -> Line<'_> {
-    Line::from(self.display.as_str())
+    Line::from(vec![
+      Span::raw(self.title.as_str()),
+      Span::raw(" "),
+      Span::styled(self.project.as_str(), Style::new().fg(Color::DarkGray)),
+    ])
   }
 
   fn output(&self) -> Cow<'_, str> {
@@ -70,6 +76,12 @@ mod tests {
       title: "foo".into(),
     };
 
-    assert_eq!(SessionItem::new(&storage, &session).display, "foo • bar");
+    let item = SessionItem::new(&storage, &session);
+    let display = item.display(DisplayContext::default());
+
+    assert_eq!(display.spans[0].content, "foo");
+    assert_eq!(display.spans[1].content, " ");
+    assert_eq!(display.spans[2].content, "bar");
+    assert_eq!(display.spans[2].style.fg, Some(Color::DarkGray));
   }
 }
