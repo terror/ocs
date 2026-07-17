@@ -3,11 +3,20 @@ use super::*;
 pub(crate) struct SessionPicker<'a> {
   pub(crate) query: Option<String>,
   pub(crate) sessions: &'a [Session],
+  pub(crate) storage: &'a Storage,
 }
 
 impl<'a> SessionPicker<'a> {
-  pub(crate) fn new(sessions: &'a [Session], query: Option<String>) -> Self {
-    Self { query, sessions }
+  pub(crate) fn new(
+    storage: &'a Storage,
+    sessions: &'a [Session],
+    query: Option<String>,
+  ) -> Self {
+    Self {
+      query,
+      sessions,
+      storage,
+    }
   }
 
   fn options(query: Option<String>) -> Result<SkimOptions> {
@@ -40,7 +49,9 @@ impl<'a> SessionPicker<'a> {
     let items = self
       .sessions
       .iter()
-      .map(|session| Arc::new(SessionItem::new(session)) as Arc<dyn SkimItem>)
+      .map(|session| {
+        Arc::new(SessionItem::new(self.storage, session)) as Arc<dyn SkimItem>
+      })
       .collect::<Vec<_>>();
 
     sender

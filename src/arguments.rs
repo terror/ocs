@@ -20,7 +20,8 @@ impl Arguments {
 
     let sessions = storage.sessions()?;
 
-    let selected = SessionPicker::new(&sessions, self.query).pick()?;
+    let selected =
+      SessionPicker::new(&storage, &sessions, self.query).pick()?;
 
     let Some(id) = selected else {
       return Ok(());
