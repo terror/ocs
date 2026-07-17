@@ -1,7 +1,15 @@
 [package]
 name = "ocs"
 version = "0.1.0"
+description = "A session picker for OpenCode"
+authors = ["Liam <liam@scalzulli.com>"]
+license = "CC0-1.0"
+homepage = "https://github.com/terror/ocs"
+repository = "https://github.com/terror/ocs"
 edition = "2024"
+exclude = ["/screenshot.png"]
+categories = ["command-line-utilities", "development-tools"]
+keywords = ["opencode", "session", "picker", "fuzzy-finder", "terminal"]
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
