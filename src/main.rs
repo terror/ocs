@@ -5,8 +5,9 @@ use {
   message::Message,
   ratatui::text::Line,
   serde::Deserialize,
-  session::{Session, SessionPicker},
+  session::Session,
   session_item::SessionItem,
+  session_picker::SessionPicker,
   skim::prelude::*,
   std::{
     borrow::Cow,
@@ -22,6 +23,7 @@ mod arguments;
 mod message;
 mod session;
 mod session_item;
+mod session_picker;
 mod storage;
 
 type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
