@@ -1,5 +1,10 @@
 ## ocs
 
+[![release](https://img.shields.io/github/release/terror/ocs.svg?label=release&style=flat&labelColor=1d1d1d&color=424242&logo=github&logoColor=white)](https://github.com/terror/ocs/releases/latest)
+[![build](https://img.shields.io/github/actions/workflow/status/terror/ocs/ci.yaml?branch=master&style=flat&labelColor=1d1d1d&color=424242&logo=GitHub%20Actions&logoColor=white&label=build)](https://github.com/terror/ocs/actions/workflows/ci.yaml)
+[![codecov](https://img.shields.io/codecov/c/gh/terror/ocs?style=flat&labelColor=1d1d1d&color=424242&logo=Codecov&logoColor=white)](https://codecov.io/gh/terror/ocs)
+[![downloads](https://img.shields.io/github/downloads/terror/ocs/total.svg?style=flat&labelColor=1d1d1d&color=424242&logo=github&logoColor=white)](https://github.com/terror/ocs/releases)
+
 `ocs` is a better session picker for [opencode](https://opencode.ai/).
 
 <img width="1667" alt="ocs" src="screenshot.png" />
