@@ -56,6 +56,11 @@ Otherwise, see below for the complete package list:
   </tbody>
 </table>
 
+### Pre-built binaries
+
+Pre-built binaries for Linux, MacOS, and Windows can be found on
+[the releases page](https://github.com/terror/ocs/releases).
+
 ## Usage
 
 Run `ocs` without arguments to browse sessions. Type to fuzzy-search, use the
