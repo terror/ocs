@@ -4,6 +4,7 @@ use {
   clap::Parser,
   message::Message,
   ratatui::text::Line,
+  row_ext::RowExt,
   rusqlite::{Connection, OpenFlags, OptionalExtension},
   session::Session,
   session_item::SessionItem,
@@ -23,6 +24,7 @@ use {
 
 mod arguments;
 mod message;
+mod row_ext;
 mod session;
 mod session_item;
 mod session_picker;

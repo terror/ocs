@@ -42,8 +42,8 @@ impl Storage {
             title: row.get(2)?,
             messages: Vec::new(),
             time: Time {
-              created: timestamp(row, 3)?,
-              updated: timestamp(row, 4)?,
+              created: row.get_u64(3)?,
+              updated: row.get_u64(4)?,
             },
           })
         },
@@ -76,7 +76,7 @@ impl Storage {
             role: row.get(3)?,
             text: String::new(),
             time: Time {
-              created: timestamp(row, 2)?,
+              created: row.get_u64(2)?,
               updated: 0,
             },
           })
@@ -162,8 +162,8 @@ impl Storage {
             title: row.get(2)?,
             messages: Vec::new(),
             time: Time {
-              created: timestamp(row, 3)?,
-              updated: timestamp(row, 4)?,
+              created: row.get_u64(3)?,
+              updated: row.get_u64(4)?,
             },
           })
         })
@@ -199,7 +199,7 @@ impl Storage {
           Ok((
             row.get::<_, String>(0)?,
             row.get::<_, String>(1)?,
-            timestamp(row, 2)?,
+            row.get_u64(2)?,
           ))
         })
         .context("could not read OpenCode messages")?
@@ -299,16 +299,6 @@ impl Storage {
 
     Ok(sessions)
   }
-}
-
-fn timestamp(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
-  u64::try_from(row.get::<_, i64>(index)?).map_err(|error| {
-    rusqlite::Error::FromSqlConversionFailure(
-      index,
-      rusqlite::types::Type::Integer,
-      Box::new(error),
-    )
-  })
 }
 
 #[cfg(test)]
