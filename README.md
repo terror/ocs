@@ -16,8 +16,7 @@ four most recent user prompts. The selected session is reopened with
 exists.
 
 The preview shows the session title, directory, ID, and complete text-message
-transcript. Session data is read directly from OpenCode's SQLite database;
-`ocs` does not modify it.
+transcript. Press control-d to delete the selected session and its messages.
 
 ## Installation
 
@@ -64,8 +63,8 @@ Pre-built binaries for Linux, MacOS, and Windows can be found on
 ## Usage
 
 Run `ocs` without arguments to browse sessions. Type to fuzzy-search, use the
-arrow keys to move through matches, and press enter to open the selected
-session. Press escape or control-c to cancel.
+arrow keys to move through matches, press enter to open the selected session,
+or press control-d to delete it. Press escape or control-c to cancel.
 
 ```bash
 ocs

@@ -18,6 +18,42 @@ impl Storage {
     Ok(Self::new(data_home.join("opencode")))
   }
 
+  pub(crate) fn delete(&self, id: &str) -> Result {
+    let database = self.data_dir.join("opencode.db");
+
+    let mut connection = Connection::open(&database).with_context(|| {
+      format!("could not open OpenCode database {}", database.display())
+    })?;
+
+    connection
+      .pragma_update(None, "foreign_keys", "ON")
+      .context("could not enable OpenCode database foreign keys")?;
+
+    let transaction = connection
+      .transaction()
+      .context("could not start OpenCode session deletion")?;
+
+    transaction
+      .execute("DELETE FROM part WHERE session_id = ?", [id])
+      .context("could not delete OpenCode session parts")?;
+
+    transaction
+      .execute("DELETE FROM message WHERE session_id = ?", [id])
+      .context("could not delete OpenCode session messages")?;
+
+    let deleted = transaction
+      .execute("DELETE FROM session WHERE id = ?", [id])
+      .context("could not delete OpenCode session")?;
+
+    if deleted == 0 {
+      bail!("selected session was not indexed");
+    }
+
+    transaction
+      .commit()
+      .context("could not commit OpenCode session deletion")
+  }
+
   pub(crate) fn new(data_dir: PathBuf) -> Self {
     Self { data_dir }
   }
@@ -305,8 +341,7 @@ impl Storage {
 mod tests {
   use super::*;
 
-  #[test]
-  fn indexes_sqlite_sessions() {
+  fn database() -> (tempfile::TempDir, Connection) {
     let temp = tempfile::tempdir().unwrap();
     let database = temp.path().join("opencode.db");
     let connection = Connection::open(database).unwrap();
@@ -342,6 +377,13 @@ mod tests {
       )
       .unwrap();
 
+    (temp, connection)
+  }
+
+  #[test]
+  fn indexes_sqlite_sessions() {
+    let (temp, _) = database();
+
     let sessions = Storage::new(temp.path().to_owned()).sessions().unwrap();
 
     assert_eq!(
@@ -358,5 +400,25 @@ mod tests {
       session.preview(),
       "\x1b[1;38;5;255mAdd picker\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m/tmp/foo\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248mses_foo\x1b[0m\n\n\x1b[1;38;5;230mUSER\x1b[0m\nBuild a picker\n\n\x1b[1;38;5;255mASSISTANT\x1b[0m\nUse skim"
     );
+  }
+
+  #[test]
+  fn deletes_session_and_associated_data() {
+    let (temp, connection) = database();
+
+    Storage::new(temp.path().to_owned())
+      .delete("ses_foo")
+      .unwrap();
+
+    for table in ["session", "message", "part"] {
+      assert_eq!(
+        connection
+          .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+            row.get::<_, i64>(0)
+          })
+          .unwrap(),
+        0
+      );
+    }
   }
 }
