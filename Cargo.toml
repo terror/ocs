@@ -11,7 +11,13 @@ exclude = ["/screenshot.png"]
 categories = ["command-line-utilities", "development-tools"]
 keywords = ["opencode", "session", "picker", "fuzzy-finder", "terminal"]
 
-[lints.clippy]
+[lints]
+workspace = true
+
+[workspace]
+members = [".", "crates/*"]
+
+[workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 arbitrary-source-item-ordering = "deny"
 pedantic = { level = "deny", priority = -1 }

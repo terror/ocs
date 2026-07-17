@@ -1240,6 +1240,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ocs-changelog"
+version = "0.0.0"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
