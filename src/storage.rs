@@ -174,7 +174,10 @@ impl Storage {
     Ok(session)
   }
 
-  pub(crate) fn sessions(&self) -> Result<Vec<Session>> {
+  pub(crate) fn sessions(
+    &self,
+    directory: Option<&Path>,
+  ) -> Result<Vec<Session>> {
     let database = self.data_dir.join("opencode.db");
 
     let connection =
@@ -207,6 +210,10 @@ impl Storage {
         .collect::<rusqlite::Result<Vec<_>>>()
         .context("could not read OpenCode sessions")?
     };
+
+    if let Some(directory) = directory {
+      sessions.retain(|session| Path::new(&session.directory) == directory);
+    }
 
     let messages = {
       let mut statement = connection
@@ -330,7 +337,14 @@ impl Storage {
     });
 
     if sessions.is_empty() {
-      bail!("no OpenCode sessions found in {}", self.data_dir.display());
+      match directory {
+        Some(directory) => {
+          bail!("no OpenCode sessions found in {}", directory.display());
+        }
+        None => {
+          bail!("no OpenCode sessions found in {}", self.data_dir.display())
+        }
+      }
     }
 
     Ok(sessions)
@@ -384,7 +398,7 @@ mod tests {
   fn indexes_sqlite_sessions() {
     let (temp, _) = database();
 
-    let sessions = Storage::new(temp.path().to_owned()).sessions().unwrap();
+    let sessions = Storage::new(temp.path().to_owned()).sessions(None).unwrap();
 
     assert_eq!(
       sessions[0].search_text(),
@@ -400,6 +414,25 @@ mod tests {
       session.preview(),
       "\x1b[1;38;5;255mAdd picker\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m/tmp/foo\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248mses_foo\x1b[0m\n\n\x1b[1;38;5;230mUSER\x1b[0m\nBuild a picker\n\n\x1b[1;38;5;255mASSISTANT\x1b[0m\nUse skim"
     );
+  }
+
+  #[test]
+  fn filters_sessions_by_directory() {
+    let (temp, connection) = database();
+
+    connection
+      .execute(
+        "INSERT INTO session VALUES ('ses_bar', '/tmp/bar', 'Bar', 3, 4)",
+        [],
+      )
+      .unwrap();
+
+    let sessions = Storage::new(temp.path().to_owned())
+      .sessions(Some(Path::new("/tmp/bar")))
+      .unwrap();
+
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, "ses_bar");
   }
 
   #[test]

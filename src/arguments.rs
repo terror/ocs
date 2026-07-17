@@ -3,6 +3,8 @@ use super::*;
 #[derive(Parser)]
 #[command(about = "A fuzzy OpenCode session picker")]
 pub(crate) struct Arguments {
+  #[arg(long, help = "Only show sessions from the current directory")]
+  pub(crate) cwd: bool,
   #[arg(long, value_name = "PATH", help = "OpenCode data directory")]
   pub(crate) data_dir: Option<PathBuf>,
   #[arg(long, help = "Print the selected session ID instead of opening it")]
@@ -18,10 +20,16 @@ impl Arguments {
       None => Storage::default()?,
     };
 
+    let directory = self
+      .cwd
+      .then(env::current_dir)
+      .transpose()
+      .context("could not determine the current directory")?;
+
     let mut query = self.query;
 
     loop {
-      let sessions = storage.sessions()?;
+      let sessions = storage.sessions(directory.as_deref())?;
 
       let Some(selection) =
         SessionPicker::new(&storage, &sessions, query).pick()?

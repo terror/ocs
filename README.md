@@ -76,6 +76,12 @@ Pass an initial query with `--query`:
 ocs --query picker
 ```
 
+Use `--cwd` to show only sessions started in the current directory:
+
+```bash
+ocs --cwd
+```
+
 Use `--print` to write the selected session ID to standard output instead of
 opening OpenCode. This is useful for scripts and shell integrations:
 
