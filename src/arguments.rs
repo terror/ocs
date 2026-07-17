@@ -4,11 +4,11 @@ use super::*;
 #[command(about = "A fuzzy OpenCode session picker")]
 pub(crate) struct Arguments {
   #[arg(long, value_name = "PATH", help = "OpenCode data directory")]
-  data_dir: Option<PathBuf>,
+  pub(crate) data_dir: Option<PathBuf>,
   #[arg(long, help = "Print the selected session ID instead of opening it")]
-  print: bool,
+  pub(crate) print: bool,
   #[arg(long, help = "Initial fuzzy-search query")]
-  query: Option<String>,
+  pub(crate) query: Option<String>,
 }
 
 impl Arguments {
@@ -33,7 +33,7 @@ impl Arguments {
 
     let session = sessions
       .iter()
-      .find(|session| session.id() == id)
+      .find(|session| session.id == id)
       .context("selected session was not indexed")?;
 
     session.open()

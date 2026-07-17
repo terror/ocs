@@ -1,27 +1,19 @@
 use super::*;
 
 pub(crate) struct Session {
-  directory: String,
-  id: String,
-  messages: Vec<Message>,
-  title: String,
-  updated: u64,
+  pub(crate) directory: String,
+  pub(crate) id: String,
+  pub(crate) messages: Vec<Message>,
+  pub(crate) title: String,
+  pub(crate) updated: u64,
 }
 
 pub(crate) struct SessionPicker<'a> {
-  query: Option<String>,
-  sessions: &'a [Session],
+  pub(crate) query: Option<String>,
+  pub(crate) sessions: &'a [Session],
 }
 
 impl Session {
-  pub(crate) fn directory(&self) -> &str {
-    &self.directory
-  }
-
-  pub(crate) fn id(&self) -> &str {
-    &self.id
-  }
-
   pub(crate) fn new(
     directory: String,
     id: String,
@@ -64,13 +56,13 @@ impl Session {
     for message in self
       .messages
       .iter()
-      .filter(|message| !message.text().is_empty())
+      .filter(|message| !message.text.is_empty())
     {
       message_count += 1;
       preview.push_str("\n\n");
-      preview.push_str(&message.role().to_uppercase());
+      preview.push_str(&message.role.to_uppercase());
       preview.push_str(":\n");
-      preview.push_str(message.text());
+      preview.push_str(&message.text);
     }
 
     if message_count == 0 {
@@ -90,25 +82,17 @@ impl Session {
     for message in self
       .messages
       .iter()
-      .filter(|message| !message.text().is_empty())
+      .filter(|message| !message.text.is_empty())
     {
       search_text.push('\n');
-      search_text.push_str(message.text());
+      search_text.push_str(&message.text);
     }
 
     search_text
   }
 
   pub(crate) fn sort_messages(&mut self) {
-    self.messages.sort_by_key(Message::created);
-  }
-
-  pub(crate) fn title(&self) -> &str {
-    &self.title
-  }
-
-  pub(crate) fn updated(&self) -> u64 {
-    self.updated
+    self.messages.sort_by_key(|message| message.created);
   }
 }
 

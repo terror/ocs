@@ -1,17 +1,17 @@
 use super::*;
 
 pub(crate) struct SessionItem {
-  display: String,
-  id: String,
-  preview: String,
-  search_text: String,
+  pub(crate) display: String,
+  pub(crate) id: String,
+  pub(crate) preview: String,
+  pub(crate) search_text: String,
 }
 
 impl SessionItem {
   pub(crate) fn new(session: &Session) -> Self {
     Self {
-      display: format!("{}  {}", session.title(), session.directory()),
-      id: session.id().to_owned(),
+      display: format!("{}  {}", session.title, session.directory),
+      id: session.id.clone(),
       preview: session.preview(),
       search_text: session.search_text(),
     }

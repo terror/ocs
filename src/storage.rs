@@ -1,47 +1,47 @@
 use super::*;
 
 pub(crate) struct Storage {
-  data_dir: PathBuf,
+  pub(crate) data_dir: PathBuf,
 }
 
 #[derive(Deserialize)]
 struct StoredSession {
   #[serde(default)]
-  directory: String,
-  id: String,
+  pub(crate) directory: String,
+  pub(crate) id: String,
   #[serde(default)]
-  time: StoredTime,
+  pub(crate) time: StoredTime,
   #[serde(default)]
-  title: String,
+  pub(crate) title: String,
 }
 
 #[derive(Default, Deserialize)]
 struct StoredTime {
   #[serde(default)]
-  created: u64,
+  pub(crate) created: u64,
   #[serde(default)]
-  updated: u64,
+  pub(crate) updated: u64,
 }
 
 #[derive(Deserialize)]
 struct StoredMessage {
-  id: String,
+  pub(crate) id: String,
   #[serde(default)]
-  role: String,
+  pub(crate) role: String,
   #[serde(rename = "sessionID")]
-  session_id: String,
+  pub(crate) session_id: String,
   #[serde(default)]
-  time: StoredTime,
+  pub(crate) time: StoredTime,
 }
 
 #[derive(Deserialize)]
 struct StoredPart {
   #[serde(rename = "type")]
-  kind: String,
+  pub(crate) kind: String,
   #[serde(rename = "messageID")]
-  message_id: String,
+  pub(crate) message_id: String,
   #[serde(default)]
-  text: String,
+  pub(crate) text: String,
 }
 
 impl Storage {
@@ -85,7 +85,7 @@ impl Storage {
     let session_indexes = sessions
       .iter()
       .enumerate()
-      .map(|(index, session)| (session.id().to_owned(), index))
+      .map(|(index, session)| (session.id.clone(), index))
       .collect::<HashMap<_, _>>();
 
     let mut messages = json_files(&storage.join("message"))?
@@ -128,9 +128,9 @@ impl Storage {
 
     sessions.sort_by(|left, right| {
       right
-        .updated()
-        .cmp(&left.updated())
-        .then_with(|| left.title().cmp(right.title()))
+        .updated
+        .cmp(&left.updated)
+        .then_with(|| left.title.cmp(&right.title))
     });
 
     if sessions.is_empty() {
