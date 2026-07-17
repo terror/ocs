@@ -25,6 +25,7 @@ impl<'a> SessionPicker<'a> {
     options
       .height("100%")
       .prompt("> ")
+      .bind(vec!["change:top".into()])
       .header(
         "\x1b[2m↑/↓ up/down • type to search • enter open • esc cancel\x1b[0m",
       )
@@ -83,5 +84,10 @@ mod tests {
   #[test]
   fn disables_hscroll_for_custom_display() {
     assert!(SessionPicker::options(None).unwrap().no_hscroll);
+  }
+
+  #[test]
+  fn selects_the_top_match_when_the_query_changes() {
+    assert_eq!(SessionPicker::options(None).unwrap().bind, ["change:top"]);
   }
 }
