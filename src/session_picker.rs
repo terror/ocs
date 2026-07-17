@@ -10,7 +10,7 @@ impl<'a> SessionPicker<'a> {
     Self { query, sessions }
   }
 
-  pub(crate) fn pick(self) -> Result<Option<String>> {
+  fn options(query: Option<String>) -> Result<SkimOptions> {
     let mut options = SkimOptionsBuilder::default();
 
     options
@@ -19,16 +19,21 @@ impl<'a> SessionPicker<'a> {
       .header(
         "\x1b[2m↑/↓ up/down • type to search • enter open • esc cancel\x1b[0m",
       )
+      .no_hscroll(true)
       .preview("")
       .preview_window("down:50%:wrap");
 
-    if let Some(query) = self.query {
+    if let Some(query) = query {
       options.query(query);
     }
 
-    let options = options
+    options
       .build()
-      .context("could not configure the session picker")?;
+      .context("could not configure the session picker")
+  }
+
+  pub(crate) fn pick(self) -> Result<Option<String>> {
+    let options = Self::options(self.query)?;
 
     let (sender, receiver): (SkimItemSender, SkimItemReceiver) = unbounded();
 
@@ -57,5 +62,15 @@ impl<'a> SessionPicker<'a> {
         .first()
         .map(|item| item.output().into_owned()),
     )
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn disables_hscroll_for_custom_display() {
+    assert!(SessionPicker::options(None).unwrap().no_hscroll);
   }
 }
