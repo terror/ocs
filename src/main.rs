@@ -18,7 +18,7 @@ use {
     borrow::Cow,
     collections::HashMap,
     env,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Display, Formatter, Write},
     path::{Path, PathBuf},
     process::{self, Command},
     sync::OnceLock,

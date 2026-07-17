@@ -66,10 +66,12 @@ impl Session {
     }
 
     if message_count == 0 {
-      preview.push_str(&format!(
+      write!(
+        preview,
         "\n\n{}",
         style(DIM_LIGHT_GRAY, "No text messages stored for this session.")
-      ));
+      )
+      .unwrap();
     }
 
     preview
