@@ -151,7 +151,7 @@ impl<'a> SessionPicker<'a> {
       .height("100%")
       .prompt("ocs> ")
       .header(
-        "Enter: open session  Esc: cancel  Search titles, paths, and chat text",
+        "\x1b[2m↑/↓ up/down • type to search • enter open • esc cancel\x1b[0m",
       )
       .preview("")
       .preview_window("down:50%:wrap");
