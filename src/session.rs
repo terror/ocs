@@ -165,6 +165,7 @@ mod tests {
   #[test]
   fn search_text_truncates_messages_at_character_boundary() {
     let text = format!("{}bar", "é".repeat(MAX_SEARCH_MESSAGE_CHARS));
+
     let session = Session {
       directory: "bar".into(),
       id: "ses_foo".into(),

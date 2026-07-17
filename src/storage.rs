@@ -120,18 +120,188 @@ impl Storage {
         .context("could not read OpenCode parts")?
     };
 
-    Ok(
-      index_sessions(vec![session], messages, parts)
-        .into_iter()
-        .next()
-        .unwrap(),
-    )
+    let mut messages = messages
+      .into_iter()
+      .map(|message| (message.id.clone(), message))
+      .collect::<HashMap<_, _>>();
+
+    for part in parts {
+      if part.kind == "text"
+        && let Some(message) = messages.get_mut(&part.message_id)
+      {
+        message.push_text(&part.text);
+      }
+    }
+
+    let mut session = session;
+
+    for (_, message) in messages {
+      session.push_message(message);
+    }
+
+    session.sort_messages();
+
+    Ok(session)
   }
 
   pub(crate) fn sessions(&self) -> Result<Vec<Session>> {
     let database = self.data_dir.join("opencode.db");
 
-    let mut sessions = database_sessions(&database)?;
+    let connection =
+      Connection::open_with_flags(&database, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .with_context(|| {
+          format!("could not open OpenCode database {}", database.display())
+        })?;
+
+    let mut sessions = {
+      let mut statement = connection
+        .prepare(
+          "SELECT id, directory, title, time_created, time_updated FROM session",
+        )
+        .context("could not query OpenCode sessions")?;
+
+      statement
+        .query_map([], |row| {
+          Ok(Session {
+            id: row.get(0)?,
+            directory: row.get(1)?,
+            title: row.get(2)?,
+            messages: Vec::new(),
+            time: Time {
+              created: timestamp(row, 3)?,
+              updated: timestamp(row, 4)?,
+            },
+          })
+        })
+        .context("could not read OpenCode sessions")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("could not read OpenCode sessions")?
+    };
+
+    let messages = {
+      let mut statement = connection
+        .prepare(
+          "
+            SELECT id, session_id, time_created
+            FROM (
+              SELECT
+                id,
+                session_id,
+                time_created,
+                ROW_NUMBER() OVER (
+                  PARTITION BY session_id
+                  ORDER BY time_created DESC
+                ) AS position
+              FROM message
+              WHERE json_extract(data, '$.role') = 'user'
+            )
+            WHERE position <= 4
+          ",
+        )
+        .context("could not query OpenCode messages")?;
+
+      statement
+        .query_map([], |row| {
+          Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            timestamp(row, 2)?,
+          ))
+        })
+        .context("could not read OpenCode messages")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("could not read OpenCode messages")?
+    };
+
+    let parts = {
+      let mut statement = connection
+        .prepare(
+          "
+            WITH recent_messages AS (
+              SELECT
+                id,
+                session_id,
+                ROW_NUMBER() OVER (
+                  PARTITION BY session_id
+                  ORDER BY time_created DESC
+                ) AS position
+              FROM message
+              WHERE json_extract(data, '$.role') = 'user'
+            )
+            SELECT
+              part.message_id,
+              substr(COALESCE(json_extract(part.data, '$.text'), ''), 1, 512)
+            FROM part
+            JOIN recent_messages ON recent_messages.id = part.message_id
+            WHERE recent_messages.position <= 4
+              AND json_extract(part.data, '$.type') = 'text'
+            ORDER BY part.time_created
+          ",
+        )
+        .context("could not query OpenCode parts")?;
+
+      statement
+        .query_map([], |row| {
+          Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .context("could not read OpenCode parts")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("could not read OpenCode parts")?
+    };
+
+    let messages = messages
+      .into_iter()
+      .map(|(id, session_id, created)| Message {
+        id,
+        session_id,
+        role: "user".into(),
+        text: String::new(),
+        time: Time {
+          created,
+          updated: 0,
+        },
+      })
+      .collect::<Vec<_>>();
+
+    let parts = parts
+      .into_iter()
+      .map(|(message_id, text)| Part {
+        kind: "text".into(),
+        message_id,
+        text,
+      })
+      .collect::<Vec<_>>();
+
+    let session_indexes = sessions
+      .iter()
+      .enumerate()
+      .map(|(index, session)| (session.id.clone(), index))
+      .collect::<HashMap<_, _>>();
+
+    let mut messages = messages
+      .into_iter()
+      .filter_map(|message| {
+        session_indexes
+          .get(&message.session_id)
+          .map(|&session_index| (message.id.clone(), (session_index, message)))
+      })
+      .collect::<HashMap<_, _>>();
+
+    for part in parts {
+      if part.kind == "text"
+        && let Some((_, message)) = messages.get_mut(&part.message_id)
+      {
+        message.push_text(&part.text);
+      }
+    }
+
+    for (_, (session_index, message)) in messages {
+      sessions[session_index].push_message(message);
+    }
+
+    for session in &mut sessions {
+      session.sort_messages();
+    }
 
     sessions.sort_by(|left, right| {
       right
@@ -148,135 +318,6 @@ impl Storage {
   }
 }
 
-fn database_sessions(database: &Path) -> Result<Vec<Session>> {
-  let connection =
-    Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)
-      .with_context(|| {
-        format!("could not open OpenCode database {}", database.display())
-      })?;
-
-  let sessions = {
-    let mut statement = connection
-      .prepare(
-        "SELECT id, directory, title, time_created, time_updated FROM session",
-      )
-      .context("could not query OpenCode sessions")?;
-
-    statement
-      .query_map([], |row| {
-        Ok(Session {
-          id: row.get(0)?,
-          directory: row.get(1)?,
-          title: row.get(2)?,
-          messages: Vec::new(),
-          time: Time {
-            created: timestamp(row, 3)?,
-            updated: timestamp(row, 4)?,
-          },
-        })
-      })
-      .context("could not read OpenCode sessions")?
-      .collect::<rusqlite::Result<Vec<_>>>()
-      .context("could not read OpenCode sessions")?
-  };
-
-  let messages = {
-    let mut statement = connection
-      .prepare(
-        "
-          SELECT id, session_id, time_created
-          FROM (
-            SELECT
-              id,
-              session_id,
-              time_created,
-              ROW_NUMBER() OVER (
-                PARTITION BY session_id
-                ORDER BY time_created DESC
-              ) AS position
-            FROM message
-            WHERE json_extract(data, '$.role') = 'user'
-          )
-          WHERE position <= 4
-        ",
-      )
-      .context("could not query OpenCode messages")?;
-
-    statement
-      .query_map([], |row| {
-        Ok((
-          row.get::<_, String>(0)?,
-          row.get::<_, String>(1)?,
-          timestamp(row, 2)?,
-        ))
-      })
-      .context("could not read OpenCode messages")?
-      .collect::<rusqlite::Result<Vec<_>>>()
-      .context("could not read OpenCode messages")?
-  };
-
-  let parts = {
-    let mut statement = connection
-      .prepare(
-        "
-          WITH recent_messages AS (
-            SELECT
-              id,
-              session_id,
-              ROW_NUMBER() OVER (
-                PARTITION BY session_id
-                ORDER BY time_created DESC
-              ) AS position
-            FROM message
-            WHERE json_extract(data, '$.role') = 'user'
-          )
-          SELECT
-            part.message_id,
-            substr(COALESCE(json_extract(part.data, '$.text'), ''), 1, 512)
-          FROM part
-          JOIN recent_messages ON recent_messages.id = part.message_id
-          WHERE recent_messages.position <= 4
-            AND json_extract(part.data, '$.type') = 'text'
-          ORDER BY part.time_created
-        ",
-      )
-      .context("could not query OpenCode parts")?;
-
-    statement
-      .query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-      })
-      .context("could not read OpenCode parts")?
-      .collect::<rusqlite::Result<Vec<_>>>()
-      .context("could not read OpenCode parts")?
-  };
-
-  let messages = messages
-    .into_iter()
-    .map(|(id, session_id, created)| Message {
-      id,
-      session_id,
-      role: "user".into(),
-      text: String::new(),
-      time: Time {
-        created,
-        updated: 0,
-      },
-    })
-    .collect::<Vec<_>>();
-
-  let parts = parts
-    .into_iter()
-    .map(|(message_id, text)| Part {
-      kind: "text".into(),
-      message_id,
-      text,
-    })
-    .collect::<Vec<_>>();
-
-  Ok(index_sessions(sessions, messages, parts))
-}
-
 fn timestamp(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
   u64::try_from(row.get::<_, i64>(index)?).map_err(|error| {
     rusqlite::Error::FromSqlConversionFailure(
@@ -285,45 +326,6 @@ fn timestamp(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<u64> {
       Box::new(error),
     )
   })
-}
-
-fn index_sessions(
-  mut sessions: Vec<Session>,
-  messages: Vec<Message>,
-  parts: Vec<Part>,
-) -> Vec<Session> {
-  let session_indexes = sessions
-    .iter()
-    .enumerate()
-    .map(|(index, session)| (session.id.clone(), index))
-    .collect::<HashMap<_, _>>();
-
-  let mut messages = messages
-    .into_iter()
-    .filter_map(|message| {
-      session_indexes
-        .get(&message.session_id)
-        .map(|&session_index| (message.id.clone(), (session_index, message)))
-    })
-    .collect::<HashMap<_, _>>();
-
-  for part in parts {
-    if part.kind == "text"
-      && let Some((_, message)) = messages.get_mut(&part.message_id)
-    {
-      message.push_text(&part.text);
-    }
-  }
-
-  for (_, (session_index, message)) in messages {
-    sessions[session_index].push_message(message);
-  }
-
-  for session in &mut sessions {
-    session.sort_messages();
-  }
-
-  sessions
 }
 
 #[cfg(test)]
