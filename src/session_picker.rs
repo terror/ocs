@@ -27,7 +27,11 @@ impl<'a> SessionPicker<'a> {
       .prompt("> ")
       .bind(vec!["change:top".into(), "ctrl-d:accept(delete)".into()])
       .header(
-        "\x1b[2m↑/↓ up/down • type to search • enter open • ctrl-d delete • esc cancel\x1b[0m",
+        style(
+          DIM,
+          "↑/↓ up/down • type to search • enter open • ctrl-d delete • esc cancel",
+        )
+          .to_string(),
       )
       .no_hscroll(true)
       .preview("")

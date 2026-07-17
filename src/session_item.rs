@@ -32,7 +32,7 @@ impl SkimItem for SessionItem {
     Line::from(vec![
       Span::raw(self.title.as_str()),
       Span::raw(" "),
-      Span::styled(self.project.as_str(), Style::new().fg(Color::DarkGray)),
+      Span::styled(self.project.as_str(), Style::new().fg(DARK_GRAY)),
     ])
   }
 
@@ -82,6 +82,6 @@ mod tests {
     assert_eq!(display.spans[0].content, "foo");
     assert_eq!(display.spans[1].content, " ");
     assert_eq!(display.spans[2].content, "bar");
-    assert_eq!(display.spans[2].style.fg, Some(Color::DarkGray));
+    assert_eq!(display.spans[2].style.fg, Some(DARK_GRAY));
   }
 }
