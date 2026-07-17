@@ -28,7 +28,7 @@ impl SkimItem for SessionItem {
   }
 
   fn preview(&self, _context: PreviewContext) -> ItemPreview {
-    ItemPreview::Text(self.preview.clone())
+    ItemPreview::AnsiText(self.preview.clone())
   }
 
   fn text(&self) -> Cow<'_, str> {

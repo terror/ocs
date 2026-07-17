@@ -33,8 +33,10 @@ impl Session {
   }
 
   pub(crate) fn preview(&self) -> String {
-    let mut preview =
-      format!("{}\n{}\n{}", self.title, self.directory, self.id);
+    let mut preview = format!(
+      "\x1b[1;38;5;255m{}\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m{}\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248m{}\x1b[0m",
+      self.title, self.directory, self.id
+    );
 
     let mut message_count = 0;
 
@@ -45,13 +47,19 @@ impl Session {
     {
       message_count += 1;
       preview.push_str("\n\n");
-      preview.push_str(&message.role.to_uppercase());
-      preview.push_str(":\n");
+      preview.push_str(match message.role.as_str() {
+        "user" => "\x1b[1;38;5;230mUSER\x1b[0m",
+        "assistant" => "\x1b[1;38;5;255mASSISTANT\x1b[0m",
+        _ => "\x1b[1;38;5;244mMESSAGE\x1b[0m",
+      });
+      preview.push('\n');
       preview.push_str(&message.text);
     }
 
     if message_count == 0 {
-      preview.push_str("\n\nNo text messages stored for this session.");
+      preview.push_str(
+        "\n\n\x1b[2;38;5;248mNo text messages stored for this session.\x1b[0m",
+      );
     }
 
     preview

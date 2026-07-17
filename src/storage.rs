@@ -191,7 +191,7 @@ mod tests {
     );
     assert_eq!(
       sessions[0].preview(),
-      "Add picker\n/tmp/foo\nses_foo\n\nUSER:\nBuild a picker\n\nASSISTANT:\nUse skim"
+      "\x1b[1;38;5;255mAdd picker\x1b[0m\n\x1b[38;5;244mDirectory\x1b[0m  \x1b[2;38;5;248m/tmp/foo\x1b[0m\n\x1b[38;5;244mSession\x1b[0m    \x1b[2;38;5;248mses_foo\x1b[0m\n\n\x1b[1;38;5;230mUSER\x1b[0m\nBuild a picker\n\n\x1b[1;38;5;255mASSISTANT\x1b[0m\nUse skim"
     );
   }
 }
