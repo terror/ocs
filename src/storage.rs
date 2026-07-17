@@ -1,7 +1,5 @@
 use super::*;
 
-use crate::session::{Message, Session};
-
 pub(crate) struct Storage {
   data_dir: PathBuf,
 }

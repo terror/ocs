@@ -1,9 +1,8 @@
-mod arguments;
-mod session;
-mod storage;
-
 use {
   anyhow::{Context, bail},
+  arguments::Arguments,
+  session::{SessionPicker, Session, Message},
+  storage::Storage,
   clap::Parser,
   serde::Deserialize,
   skim::prelude::*,
@@ -16,7 +15,9 @@ use {
   },
 };
 
-use arguments::Arguments;
+mod arguments;
+mod session;
+mod storage;
 
 type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
 

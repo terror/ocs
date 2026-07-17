@@ -1,7 +1,5 @@
 use super::*;
 
-use {crate::session::SessionPicker, crate::storage::Storage};
-
 #[derive(Parser)]
 #[command(about = "A fuzzy OpenCode session picker")]
 pub(crate) struct Arguments {
