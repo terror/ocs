@@ -79,6 +79,23 @@ opening OpenCode. This is useful for scripts and shell integrations:
 ocs --print
 ```
 
+### Shell Integration
+
+Add this function to your `.bashrc` or `.zshrc` to pass the selected session ID
+to OpenCode:
+
+```bash
+ocs() {
+  local session
+  session="$(command ocs --print "$@")" || return
+  [ -n "$session" ] || return
+  command opencode --session "$session"
+}
+```
+
+The function forwards arguments to `ocs`, so `ocs --query picker` works as
+usual.
+
 ## Data Directory
 
 By default, `ocs` reads `opencode.db` from `$XDG_DATA_HOME/opencode`. When
