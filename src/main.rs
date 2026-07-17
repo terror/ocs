@@ -2,6 +2,8 @@ use {
   anyhow::{Context, bail},
   arguments::Arguments,
   clap::Parser,
+  ratatui::text::Line,
+  session_item::SessionItem,
   serde::Deserialize,
   session::{Message, Session, SessionPicker},
   skim::prelude::*,
@@ -17,6 +19,7 @@ use {
 
 mod arguments;
 mod session;
+mod session_item;
 mod storage;
 
 type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;

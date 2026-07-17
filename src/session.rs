@@ -19,14 +19,11 @@ pub(crate) struct SessionPicker<'a> {
   sessions: &'a [Session],
 }
 
-struct SessionItem {
-  display: String,
-  id: String,
-  preview: String,
-  search_text: String,
-}
-
 impl Session {
+  pub(crate) fn directory(&self) -> &str {
+    &self.directory
+  }
+
   pub(crate) fn id(&self) -> &str {
     &self.id
   }
@@ -191,34 +188,5 @@ impl<'a> SessionPicker<'a> {
         .first()
         .map(|item| item.output().into_owned()),
     )
-  }
-}
-
-impl SessionItem {
-  fn new(session: &Session) -> Self {
-    Self {
-      display: format!("{}  {}", session.title, session.directory),
-      id: session.id.clone(),
-      preview: session.preview(),
-      search_text: session.search_text(),
-    }
-  }
-}
-
-impl SkimItem for SessionItem {
-  fn display(&self, _context: DisplayContext) -> ratatui::text::Line<'_> {
-    ratatui::text::Line::from(self.display.as_str())
-  }
-
-  fn output(&self) -> Cow<'_, str> {
-    Cow::Borrowed(&self.id)
-  }
-
-  fn preview(&self, _context: PreviewContext) -> ItemPreview {
-    ItemPreview::Text(self.preview.clone())
-  }
-
-  fn text(&self) -> Cow<'_, str> {
-    Cow::Borrowed(&self.search_text)
   }
 }
