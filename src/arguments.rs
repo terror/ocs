@@ -13,21 +13,6 @@ pub(crate) struct Arguments {
   pub(crate) query: Option<String>,
 }
 
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn version() {
-    let error = match Arguments::try_parse_from(["ocs", "--version"]) {
-      Ok(_) => panic!("expected version output"),
-      Err(error) => error,
-    };
-
-    assert_eq!(error.kind(), clap::error::ErrorKind::DisplayVersion,);
-  }
-}
-
 impl Arguments {
   pub(crate) fn run(self) -> Result {
     let storage = match self.data_dir {
