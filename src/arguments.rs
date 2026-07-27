@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Parser)]
-#[command(about = "A fuzzy OpenCode session picker")]
+#[command(about = "A fuzzy OpenCode session picker", version)]
 pub(crate) struct Arguments {
   #[arg(long, help = "Only show sessions from the current directory")]
   pub(crate) cwd: bool,
@@ -11,6 +11,21 @@ pub(crate) struct Arguments {
   pub(crate) print: bool,
   #[arg(long, help = "Initial fuzzy-search query")]
   pub(crate) query: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn version() {
+    let error = match Arguments::try_parse_from(["ocs", "--version"]) {
+      Ok(_) => panic!("expected version output"),
+      Err(error) => error,
+    };
+
+    assert_eq!(error.kind(), clap::error::ErrorKind::DisplayVersion,);
+  }
 }
 
 impl Arguments {
