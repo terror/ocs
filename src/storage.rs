@@ -54,11 +54,7 @@ impl Storage {
       .context("could not commit OpenCode session deletion")
   }
 
-  pub(crate) fn new(data_dir: PathBuf) -> Self {
-    Self { data_dir }
-  }
-
-  pub(crate) fn session(&self, id: &str) -> Result<Session> {
+  pub(crate) fn delete_session(&self, id: &str) -> Result<Session> {
     let database = self.data_dir.join("opencode.db");
 
     let connection =
@@ -172,6 +168,10 @@ impl Storage {
     session.sort_messages();
 
     Ok(session)
+  }
+
+  pub(crate) fn new(data_dir: PathBuf) -> Self {
+    Self { data_dir }
   }
 
   pub(crate) fn sessions(
@@ -407,7 +407,7 @@ mod tests {
     assert_eq!(sessions[0].messages.len(), 1);
 
     let session = Storage::new(temp.path().to_owned())
-      .session("ses_foo")
+      .delete_session("ses_foo")
       .unwrap();
 
     assert_eq!(

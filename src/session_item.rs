@@ -46,7 +46,7 @@ impl SkimItem for SessionItem {
         .preview
         .get_or_init(|| {
           Storage::new(self.data_dir.clone())
-            .session(&self.id)
+            .delete_session(&self.id)
             .map_or_else(
               |error| format!("could not load preview: {error}"),
               |session| session.preview(),
