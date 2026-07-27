@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Parser)]
-#[command(about = "A fuzzy OpenCode session picker")]
+#[command(about = "A fuzzy OpenCode session picker", version)]
 pub(crate) struct Arguments {
   #[arg(long, help = "Only show sessions from the current directory")]
   pub(crate) cwd: bool,
