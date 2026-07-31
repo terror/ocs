@@ -107,7 +107,13 @@ impl Session {
   }
 
   pub(crate) fn sort_messages(&mut self) {
-    self.messages.sort_by_key(|message| message.time.created);
+    self.messages.sort_by(|left, right| {
+      left
+        .time
+        .created
+        .cmp(&right.time.created)
+        .then_with(|| left.id.cmp(&right.id))
+    });
   }
 
   pub(crate) fn updated(&self) -> u64 {

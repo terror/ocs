@@ -95,7 +95,7 @@ impl Storage {
               COALESCE(json_extract(data, '$.role'), '')
             FROM message
             WHERE session_id = ?
-            ORDER BY time_created
+            ORDER BY time_created, id
           ",
         )
         .context("could not query OpenCode messages")?;
@@ -128,7 +128,7 @@ impl Storage {
               COALESCE(json_extract(data, '$.text'), '')
             FROM part
             WHERE session_id = ?
-            ORDER BY time_created
+            ORDER BY time_created, id
           ",
         )
         .context("could not query OpenCode parts")?;
@@ -234,7 +234,7 @@ impl Storage {
                 time_created,
                 ROW_NUMBER() OVER (
                   PARTITION BY session_id
-                  ORDER BY time_created DESC
+                  ORDER BY time_created DESC, id DESC
                 ) AS position
               FROM message
               WHERE json_extract(data, '$.role') = 'user'
@@ -267,7 +267,7 @@ impl Storage {
                 session_id,
                 ROW_NUMBER() OVER (
                   PARTITION BY session_id
-                  ORDER BY time_created DESC
+                  ORDER BY time_created DESC, id DESC
                 ) AS position
               FROM message
               WHERE json_extract(data, '$.role') = 'user'
@@ -279,7 +279,7 @@ impl Storage {
             JOIN recent_messages ON recent_messages.id = part.message_id
             WHERE recent_messages.position <= 4
               AND json_extract(part.data, '$.type') = 'text'
-            ORDER BY part.time_created
+            ORDER BY part.time_created, part.id
           ",
         )
         .context("could not query OpenCode parts")?;
@@ -385,6 +385,7 @@ mod tests {
             data TEXT NOT NULL
           );
           CREATE TABLE part (
+            id TEXT NOT NULL,
             message_id TEXT NOT NULL,
             session_id TEXT NOT NULL,
             time_created INTEGER NOT NULL,
@@ -393,8 +394,8 @@ mod tests {
           INSERT INTO session VALUES ('ses_foo', '/tmp/foo', NULL, 'Add picker', 1, 2);
           INSERT INTO message VALUES ('msg_one', 'ses_foo', 2, '{"role":"assistant"}');
           INSERT INTO message VALUES ('msg_two', 'ses_foo', 1, '{"role":"user"}');
-          INSERT INTO part VALUES ('msg_one', 'ses_foo', 2, '{"type":"text","text":"Use skim"}');
-          INSERT INTO part VALUES ('msg_two', 'ses_foo', 1, '{"type":"text","text":"Build a picker"}');
+          INSERT INTO part VALUES ('prt_one', 'msg_one', 'ses_foo', 2, '{"type":"text","text":"Use skim"}');
+          INSERT INTO part VALUES ('prt_two', 'msg_two', 'ses_foo', 1, '{"type":"text","text":"Build a picker"}');
         "#,
       )
       .unwrap();
@@ -452,6 +453,31 @@ mod tests {
 
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].id, "ses_bar");
+  }
+
+  #[test]
+  fn orders_transcript_by_time_and_id() {
+    let (temp, connection) = database();
+
+    connection
+      .execute_batch(
+        r#"
+          INSERT INTO session VALUES ('ses_bar', '/tmp/bar', NULL, 'Bar', 3, 4);
+          INSERT INTO message VALUES ('msg_foo', 'ses_bar', 5, '{"role":"assistant"}');
+          INSERT INTO message VALUES ('msg_bar', 'ses_bar', 5, '{"role":"user"}');
+          INSERT INTO part VALUES ('prt_foo', 'msg_bar', 'ses_bar', 6, '{"type":"text","text":"foo"}');
+          INSERT INTO part VALUES ('prt_bar', 'msg_bar', 'ses_bar', 6, '{"type":"text","text":"bar"}');
+        "#,
+      )
+      .unwrap();
+
+    let session = Storage::new(temp.path().join("opencode.db"))
+      .get_session("ses_bar")
+      .unwrap();
+
+    assert_eq!(session.messages[0].id, "msg_bar");
+    assert_eq!(session.messages[0].text, "bar\nfoo");
+    assert_eq!(session.messages[1].id, "msg_foo");
   }
 
   #[test]
