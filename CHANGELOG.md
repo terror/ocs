@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Discover the active database via `opencode db path`, honoring `OPENCODE_DB` and channel-specific databases, and add a `--database` flag
+
 ## [0.1.2](https://github.com/terror/ocs/releases/tag/0.1.2) - 2026-07-27
 
 ### Added

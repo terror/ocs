@@ -7,6 +7,8 @@ pub(crate) struct Arguments {
   pub(crate) all: bool,
   #[arg(long, value_name = "PATH", help = "OpenCode data directory")]
   pub(crate) data_dir: Option<PathBuf>,
+  #[arg(long, value_name = "PATH", help = "OpenCode database file")]
+  pub(crate) database: Option<PathBuf>,
   #[arg(long, help = "Print the selected session ID instead of opening it")]
   pub(crate) print: bool,
   #[arg(long, help = "Initial fuzzy-search query")]
@@ -15,9 +17,10 @@ pub(crate) struct Arguments {
 
 impl Arguments {
   pub(crate) fn run(self) -> Result {
-    let storage = match self.data_dir {
-      Some(data_dir) => Storage::new(data_dir),
-      None => Storage::default()?,
+    let storage = match (self.database, self.data_dir) {
+      (Some(database), _) => Storage::new(database),
+      (None, Some(data_dir)) => Storage::new(data_dir.join("opencode.db")),
+      (None, None) => Storage::default()?,
     };
 
     let directory = if self.all {
@@ -45,7 +48,7 @@ impl Arguments {
           id,
           query: picker_query,
         } => {
-          storage.delete(&id)?;
+          storage.delete_session(&id)?;
 
           if sessions.len() == 1 {
             return Ok(());

@@ -1,26 +1,31 @@
 use super::*;
 
 pub(crate) struct Storage {
-  pub(crate) data_dir: PathBuf,
+  pub(crate) database: PathBuf,
 }
 
 impl Storage {
   pub(crate) fn default() -> Result<Self> {
+    if let Some(database) = Self::discover() {
+      return Ok(Self::new(database));
+    }
+
     let data_home = env::var_os("XDG_DATA_HOME")
       .map(PathBuf::from)
       .or_else(|| {
         env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share"))
       })
       .context(
-        "could not determine an OpenCode data directory; pass --data-dir",
+        "could not determine an OpenCode data directory; pass --data-dir or --database",
       )?;
 
-    Ok(Self::new(data_home.join("opencode")))
+    Ok(Self::new(data_home.join("opencode").join("opencode.db")))
   }
 
-  pub(crate) fn delete(&self, id: &str) -> Result {
-    let status = self
-      .delete_command(id)?
+  pub(crate) fn delete_session(&self, id: &str) -> Result {
+    let status = Command::new("opencode")
+      .args(["session", "delete", id])
+      .env("OPENCODE_DB", &self.database)
       .status()
       .context("could not start opencode")?;
 
@@ -31,33 +36,32 @@ impl Storage {
     Ok(())
   }
 
-  fn delete_command(&self, id: &str) -> Result<Command> {
-    if !self.data_dir.ends_with("opencode") {
-      bail!("OpenCode data directory must be named opencode");
+  fn discover() -> Option<PathBuf> {
+    if let Ok(output) = Command::new("opencode").args(["db", "path"]).output()
+      && output.status.success()
+      && let Ok(database) = String::from_utf8(output.stdout)
+      && let database = database.trim()
+      && !database.is_empty()
+    {
+      return Some(PathBuf::from(database));
     }
 
-    let data_home = self
-      .data_dir
-      .parent()
-      .context("OpenCode data directory has no parent")?;
-
-    let mut command = Command::new("opencode");
-
-    command
-      .args(["session", "delete", id])
-      .env("XDG_DATA_HOME", data_home);
-
-    Ok(command)
+    env::var_os("OPENCODE_DB")
+      .filter(|database| !database.is_empty())
+      .map(PathBuf::from)
   }
 
-  pub(crate) fn delete_session(&self, id: &str) -> Result<Session> {
-    let database = self.data_dir.join("opencode.db");
-
-    let connection =
-      Connection::open_with_flags(&database, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .with_context(|| {
-          format!("could not open OpenCode database {}", database.display())
-        })?;
+  pub(crate) fn get_session(&self, id: &str) -> Result<Session> {
+    let connection = Connection::open_with_flags(
+      &self.database,
+      OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .with_context(|| {
+      format!(
+        "could not open OpenCode database {}",
+        self.database.display()
+      )
+    })?;
 
     let session = connection
       .query_row(
@@ -166,21 +170,24 @@ impl Storage {
     Ok(session)
   }
 
-  pub(crate) fn new(data_dir: PathBuf) -> Self {
-    Self { data_dir }
+  pub(crate) fn new(database: PathBuf) -> Self {
+    Self { database }
   }
 
   pub(crate) fn sessions(
     &self,
     directory: Option<&Path>,
   ) -> Result<Vec<Session>> {
-    let database = self.data_dir.join("opencode.db");
-
-    let connection =
-      Connection::open_with_flags(&database, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .with_context(|| {
-          format!("could not open OpenCode database {}", database.display())
-        })?;
+    let connection = Connection::open_with_flags(
+      &self.database,
+      OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .with_context(|| {
+      format!(
+        "could not open OpenCode database {}",
+        self.database.display()
+      )
+    })?;
 
     let mut sessions = {
       let mut statement = connection
@@ -342,7 +349,7 @@ impl Storage {
           bail!("no OpenCode sessions found in {}", directory.display());
         }
         None => {
-          bail!("no OpenCode sessions found in {}", self.data_dir.display())
+          bail!("no OpenCode sessions found in {}", self.database.display())
         }
       }
     }
@@ -399,7 +406,9 @@ mod tests {
   fn indexes_sqlite_sessions() {
     let (temp, _) = database();
 
-    let sessions = Storage::new(temp.path().to_owned()).sessions(None).unwrap();
+    let sessions = Storage::new(temp.path().join("opencode.db"))
+      .sessions(None)
+      .unwrap();
 
     assert_eq!(
       sessions[0].search_text(),
@@ -407,8 +416,8 @@ mod tests {
     );
     assert_eq!(sessions[0].messages.len(), 1);
 
-    let session = Storage::new(temp.path().to_owned())
-      .delete_session("ses_foo")
+    let session = Storage::new(temp.path().join("opencode.db"))
+      .get_session("ses_foo")
       .unwrap();
 
     assert_eq!(
@@ -437,7 +446,7 @@ mod tests {
       )
       .unwrap();
 
-    let sessions = Storage::new(temp.path().to_owned())
+    let sessions = Storage::new(temp.path().join("opencode.db"))
       .sessions(Some(Path::new("/tmp/bar")))
       .unwrap();
 
@@ -456,25 +465,11 @@ mod tests {
       )
       .unwrap();
 
-    let sessions = Storage::new(temp.path().to_owned()).sessions(None).unwrap();
+    let sessions = Storage::new(temp.path().join("opencode.db"))
+      .sessions(None)
+      .unwrap();
 
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].id, "ses_foo");
-  }
-
-  #[test]
-  fn deletes_session_through_opencode() {
-    let storage = Storage::new(PathBuf::from("foo/opencode"));
-    let command = storage.delete_command("ses_foo").unwrap();
-
-    assert_eq!(command.get_program(), "opencode");
-    assert_eq!(
-      command.get_args().collect::<Vec<_>>(),
-      ["session", "delete", "ses_foo"]
-    );
-    assert_eq!(
-      command.get_envs().collect::<Vec<_>>(),
-      [("XDG_DATA_HOME".as_ref(), Some("foo".as_ref()))]
-    );
   }
 }

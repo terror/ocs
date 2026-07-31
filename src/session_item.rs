@@ -1,7 +1,7 @@
 use super::*;
 
 pub(crate) struct SessionItem {
-  pub(crate) data_dir: PathBuf,
+  pub(crate) database: PathBuf,
   pub(crate) id: String,
   pub(crate) preview: OnceLock<String>,
   pub(crate) project: Option<String>,
@@ -21,7 +21,7 @@ impl SessionItem {
       .unwrap_or(&session.directory);
 
     Self {
-      data_dir: storage.data_dir.clone(),
+      database: storage.database.clone(),
       id: session.id.clone(),
       preview: OnceLock::new(),
       project: show_project.then(|| project.into()),
@@ -52,8 +52,8 @@ impl SkimItem for SessionItem {
       self
         .preview
         .get_or_init(|| {
-          Storage::new(self.data_dir.clone())
-            .delete_session(&self.id)
+          Storage::new(self.database.clone())
+            .get_session(&self.id)
             .map_or_else(
               |error| format!("could not load preview: {error}"),
               |session| session.preview(),
@@ -74,7 +74,7 @@ mod tests {
 
   #[test]
   fn project_name_visibility() {
-    let storage = Storage::new("/tmp/foo".into());
+    let storage = Storage::new("/tmp/foo.db".into());
 
     let session = Session {
       directory: "/tmp/bar".into(),
