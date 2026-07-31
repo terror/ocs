@@ -189,7 +189,11 @@ impl Storage {
     let mut sessions = {
       let mut statement = connection
         .prepare(
-          "SELECT id, directory, title, time_created, time_updated FROM session",
+          "
+            SELECT id, directory, title, time_created, time_updated
+            FROM session
+            WHERE parent_id IS NULL
+          ",
         )
         .context("could not query OpenCode sessions")?;
 
@@ -366,6 +370,7 @@ mod tests {
           CREATE TABLE session (
             id TEXT NOT NULL,
             directory TEXT NOT NULL,
+            parent_id TEXT,
             title TEXT NOT NULL,
             time_created INTEGER NOT NULL,
             time_updated INTEGER NOT NULL
@@ -382,7 +387,7 @@ mod tests {
             time_created INTEGER NOT NULL,
             data TEXT NOT NULL
           );
-          INSERT INTO session VALUES ('ses_foo', '/tmp/foo', 'Add picker', 1, 2);
+          INSERT INTO session VALUES ('ses_foo', '/tmp/foo', NULL, 'Add picker', 1, 2);
           INSERT INTO message VALUES ('msg_one', 'ses_foo', 2, '{"role":"assistant"}');
           INSERT INTO message VALUES ('msg_two', 'ses_foo', 1, '{"role":"user"}');
           INSERT INTO part VALUES ('msg_one', 'ses_foo', 2, '{"type":"text","text":"Use skim"}');
@@ -431,7 +436,7 @@ mod tests {
 
     connection
       .execute(
-        "INSERT INTO session VALUES ('ses_bar', '/tmp/bar', 'Bar', 3, 4)",
+        "INSERT INTO session VALUES ('ses_bar', '/tmp/bar', NULL, 'Bar', 3, 4)",
         [],
       )
       .unwrap();
@@ -442,6 +447,23 @@ mod tests {
 
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].id, "ses_bar");
+  }
+
+  #[test]
+  fn excludes_subagent_sessions() {
+    let (temp, connection) = database();
+
+    connection
+      .execute(
+        "INSERT INTO session VALUES ('ses_baz', '/tmp/foo', 'ses_foo', 'Baz', 3, 4)",
+        [],
+      )
+      .unwrap();
+
+    let sessions = Storage::new(temp.path().to_owned()).sessions(None).unwrap();
+
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, "ses_foo");
   }
 
   #[test]
