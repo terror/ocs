@@ -35,7 +35,7 @@ impl Arguments {
       let sessions = storage.sessions(directory.as_deref())?;
 
       let Some(selection) =
-        SessionPicker::new(&storage, &sessions, query).pick()?
+        SessionPicker::new(&storage, &sessions, query, self.all).pick()?
       else {
         return Ok(());
       };
