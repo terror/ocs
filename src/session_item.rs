@@ -15,20 +15,16 @@ impl SessionItem {
     session: &Session,
     show_project: bool,
   ) -> Self {
-    let project = show_project
-      .then(|| {
-        Path::new(&session.directory)
-          .file_name()
-          .and_then(|name| name.to_str())
-          .unwrap_or(&session.directory)
-      })
-      .map(String::from);
+    let project = Path::new(&session.directory)
+      .file_name()
+      .and_then(|name| name.to_str())
+      .unwrap_or(&session.directory);
 
     Self {
       data_dir: storage.data_dir.clone(),
       id: session.id.clone(),
       preview: OnceLock::new(),
-      project,
+      project: show_project.then(|| project.into()),
       search_text: session.search_text(),
       title: session.title.clone(),
     }
@@ -37,19 +33,14 @@ impl SessionItem {
 
 impl SkimItem for SessionItem {
   fn display(&self, _context: DisplayContext) -> Line<'_> {
-    let project = match &self.project {
-      Some(project) => vec![
+    match &self.project {
+      Some(project) => Line::from(vec![
+        Span::raw(self.title.as_str()),
         Span::raw(" "),
         Span::styled(project.as_str(), Style::new().fg(DARK_GRAY)),
-      ],
-      None => Vec::new(),
-    };
-
-    Line::from(
-      std::iter::once(Span::raw(self.title.as_str()))
-        .chain(project)
-        .collect::<Vec<_>>(),
-    )
+      ]),
+      None => Line::from(self.title.as_str()),
+    }
   }
 
   fn output(&self) -> Cow<'_, str> {
@@ -82,7 +73,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn displays_the_project_name_with_all() {
+  fn project_name_visibility() {
     let storage = Storage::new("/tmp/foo".into());
 
     let session = Session {
@@ -101,19 +92,6 @@ mod tests {
     assert_eq!(display.spans[1].content, " ");
     assert_eq!(display.spans[2].content, "bar");
     assert_eq!(display.spans[2].style.fg, Some(DARK_GRAY));
-  }
-
-  #[test]
-  fn hides_the_project_name_by_default() {
-    let storage = Storage::new("/tmp/foo".into());
-
-    let session = Session {
-      directory: "/tmp/bar".into(),
-      id: "ses_foo".into(),
-      messages: Vec::new(),
-      time: Time::default(),
-      title: "foo".into(),
-    };
 
     let item = SessionItem::new(&storage, &session, false);
 
