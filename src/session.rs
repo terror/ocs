@@ -33,11 +33,11 @@ impl Session {
   pub(crate) fn preview(&self) -> String {
     let mut preview = format!(
       "{}\n{}  {}\n{}    {}",
-      style(BOLD_BRIGHT_WHITE, &self.title),
+      style(BOLD_BRIGHT_WHITE, sanitize(&self.title)),
       style(GRAY, "Directory"),
-      style(DIM_LIGHT_GRAY, &self.directory),
+      style(DIM_LIGHT_GRAY, sanitize(&self.directory)),
       style(GRAY, "Session"),
-      style(DIM_LIGHT_GRAY, &self.id),
+      style(DIM_LIGHT_GRAY, sanitize(&self.id)),
     );
 
     let mut message_count = 0;
@@ -62,7 +62,7 @@ impl Session {
 
       preview.push('\n');
 
-      preview.push_str(&message.text);
+      preview.push_str(&sanitize(&message.text));
     }
 
     if message_count == 0 {
@@ -115,9 +115,102 @@ impl Session {
   }
 }
 
+fn sanitize(text: &str) -> String {
+  let mut sanitized = String::with_capacity(text.len());
+
+  let mut chars = text.chars().peekable();
+
+  loop {
+    match chars.peek() {
+      Some(&'\x1b') => {
+        chars.next();
+
+        if chars.peek() == Some(&'[') {
+          chars.next();
+
+          for c in chars.by_ref() {
+            if ('\x40'..='\x7e').contains(&c) {
+              break;
+            }
+          }
+        } else {
+          chars.next();
+        }
+      }
+      Some(&c) if c.is_control() && !matches!(c, '\n' | '\t') => {
+        chars.next();
+      }
+      Some(&c) => {
+        sanitized.push(c);
+        chars.next();
+      }
+      None => break,
+    }
+  }
+
+  sanitized
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn sanitize_strips_escape_sequences() {
+    #[track_caller]
+    fn case(input: &str, expected: &str) {
+      assert_eq!(sanitize(input), expected);
+    }
+
+    case("foo", "foo");
+    case("\x1b[31mfoo", "foo");
+    case("foo\x1b[31mbar", "foobar");
+    case("foo\x1b[31mbar\x1b[0m", "foobar");
+    case("foo\x1b7", "foo");
+  }
+
+  #[test]
+  fn sanitize_strips_control_characters() {
+    #[track_caller]
+    fn case(input: &str, expected: &str) {
+      assert_eq!(sanitize(input), expected);
+    }
+
+    case("foo\x00bar", "foobar");
+    case("foo\x07bar", "foobar");
+    case("foo\x7fbar", "foobar");
+    case("foo\nbar\tbaz", "foo\nbar\tbaz");
+  }
+
+  #[test]
+  fn preview_sanitizes_text() {
+    let session = Session {
+      directory: "/tmp/\x1b[31mbar".into(),
+      id: "ses_foo".into(),
+      messages: vec![Message {
+        id: "msg_foo".into(),
+        role: "user".into(),
+        session_id: "ses_foo".into(),
+        text: "\x1b[2Jdone".into(),
+        time: Time::default(),
+      }],
+      time: Time::default(),
+      title: "\x1b[1mfoo\x1b[0m".into(),
+    };
+
+    assert_eq!(
+      session.preview(),
+      format!(
+        "{}\n{}  {}\n{}    {}\n\n{}\ndone",
+        style(BOLD_BRIGHT_WHITE, "foo"),
+        style(GRAY, "Directory"),
+        style(DIM_LIGHT_GRAY, "/tmp/bar"),
+        style(GRAY, "Session"),
+        style(DIM_LIGHT_GRAY, "ses_foo"),
+        style(BOLD_YELLOW, "USER"),
+      )
+    );
+  }
 
   #[test]
   fn search_text_uses_recent_user_messages() {
