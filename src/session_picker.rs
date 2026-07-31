@@ -3,6 +3,7 @@ use super::*;
 pub(crate) struct SessionPicker<'a> {
   pub(crate) query: Option<String>,
   pub(crate) sessions: &'a [Session],
+  pub(crate) show_project: bool,
   pub(crate) storage: &'a Storage,
 }
 
@@ -11,10 +12,12 @@ impl<'a> SessionPicker<'a> {
     storage: &'a Storage,
     sessions: &'a [Session],
     query: Option<String>,
+    show_project: bool,
   ) -> Self {
     Self {
       query,
       sessions,
+      show_project,
       storage,
     }
   }
@@ -55,7 +58,8 @@ impl<'a> SessionPicker<'a> {
       .sessions
       .iter()
       .map(|session| {
-        Arc::new(SessionItem::new(self.storage, session)) as Arc<dyn SkimItem>
+        Arc::new(SessionItem::new(self.storage, session, self.show_project))
+          as Arc<dyn SkimItem>
       })
       .collect::<Vec<_>>();
 

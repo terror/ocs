@@ -15,6 +15,8 @@ four most recent user prompts. The selected session is reopened with
 `opencode --session` in its original directory when that directory still
 exists.
 
+By default, `ocs` shows only sessions started in the current directory.
+
 The preview shows the session title, directory, ID, and complete text-message
 transcript. Press control-d to delete the selected session and its messages.
 
@@ -76,10 +78,10 @@ Pass an initial query with `--query`:
 ocs --query picker
 ```
 
-Use `--cwd` to show only sessions started in the current directory:
+Use `--all` to show sessions from every directory:
 
 ```bash
-ocs --cwd
+ocs --all
 ```
 
 Use `--print` to write the selected session ID to standard output instead of
