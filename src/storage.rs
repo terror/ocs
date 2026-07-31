@@ -19,39 +19,35 @@ impl Storage {
   }
 
   pub(crate) fn delete(&self, id: &str) -> Result {
-    let database = self.data_dir.join("opencode.db");
+    let status = self
+      .delete_command(id)?
+      .status()
+      .context("could not start opencode")?;
 
-    let mut connection = Connection::open(&database).with_context(|| {
-      format!("could not open OpenCode database {}", database.display())
-    })?;
-
-    connection
-      .pragma_update(None, "foreign_keys", "ON")
-      .context("could not enable OpenCode database foreign keys")?;
-
-    let transaction = connection
-      .transaction()
-      .context("could not start OpenCode session deletion")?;
-
-    transaction
-      .execute("DELETE FROM part WHERE session_id = ?", [id])
-      .context("could not delete OpenCode session parts")?;
-
-    transaction
-      .execute("DELETE FROM message WHERE session_id = ?", [id])
-      .context("could not delete OpenCode session messages")?;
-
-    let deleted = transaction
-      .execute("DELETE FROM session WHERE id = ?", [id])
-      .context("could not delete OpenCode session")?;
-
-    if deleted == 0 {
-      bail!("selected session was not indexed");
+    if !status.success() {
+      bail!("opencode exited with {status}");
     }
 
-    transaction
-      .commit()
-      .context("could not commit OpenCode session deletion")
+    Ok(())
+  }
+
+  fn delete_command(&self, id: &str) -> Result<Command> {
+    if !self.data_dir.ends_with("opencode") {
+      bail!("OpenCode data directory must be named opencode");
+    }
+
+    let data_home = self
+      .data_dir
+      .parent()
+      .context("OpenCode data directory has no parent")?;
+
+    let mut command = Command::new("opencode");
+
+    command
+      .args(["session", "delete", id])
+      .env("XDG_DATA_HOME", data_home);
+
+    Ok(command)
   }
 
   pub(crate) fn delete_session(&self, id: &str) -> Result<Session> {
@@ -467,22 +463,18 @@ mod tests {
   }
 
   #[test]
-  fn deletes_session_and_associated_data() {
-    let (temp, connection) = database();
+  fn deletes_session_through_opencode() {
+    let storage = Storage::new(PathBuf::from("foo/opencode"));
+    let command = storage.delete_command("ses_foo").unwrap();
 
-    Storage::new(temp.path().to_owned())
-      .delete("ses_foo")
-      .unwrap();
-
-    for table in ["session", "message", "part"] {
-      assert_eq!(
-        connection
-          .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
-            row.get::<_, i64>(0)
-          })
-          .unwrap(),
-        0
-      );
-    }
+    assert_eq!(command.get_program(), "opencode");
+    assert_eq!(
+      command.get_args().collect::<Vec<_>>(),
+      ["session", "delete", "ses_foo"]
+    );
+    assert_eq!(
+      command.get_envs().collect::<Vec<_>>(),
+      [("XDG_DATA_HOME".as_ref(), Some("foo".as_ref()))]
+    );
   }
 }
