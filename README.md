@@ -108,13 +108,23 @@ ocs() {
 The function forwards arguments to `ocs`, so `ocs --query picker` works as
 usual.
 
-## Data Directory
+## Database
 
-By default, `ocs` reads `opencode.db` from `$XDG_DATA_HOME/opencode`. When
-`XDG_DATA_HOME` is unset, it falls back to `$HOME/.local/share/opencode`.
+By default, `ocs` discovers the active OpenCode database by running
+`opencode db path`, which honors the `OPENCODE_DB` environment variable and
+the per-channel database files used by beta and dev installs. When OpenCode
+is not installed, `ocs` falls back to `opencode.db` in
+`$XDG_DATA_HOME/opencode`, or `$HOME/.local/share/opencode` when
+`XDG_DATA_HOME` is unset.
 
-Pass `--data-dir` to use an alternate OpenCode data directory, such as a
+Pass `--database` to use a specific OpenCode database file, such as a
 separate profile or a copied database:
+
+```bash
+ocs --database /path/to/opencode.db
+```
+
+Pass `--data-dir` to use an alternate OpenCode data directory, as before:
 
 ```bash
 ocs --data-dir /path/to/opencode
