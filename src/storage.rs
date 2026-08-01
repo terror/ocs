@@ -69,14 +69,17 @@ impl Storage {
         [id],
         |row| {
           Ok(Session {
-            id: row.get(0)?,
+            cost: 0.0,
             directory: row.get(1)?,
-            title: row.get(2)?,
+            id: row.get(0)?,
             messages: Vec::new(),
+            model: None,
             time: Time {
               created: row.get_u64(3)?,
               updated: row.get_u64(4)?,
             },
+            title: row.get(2)?,
+            tokens: 0,
           })
         },
       )
@@ -203,19 +206,69 @@ impl Storage {
       statement
         .query_map([], |row| {
           Ok(Session {
-            id: row.get(0)?,
+            cost: 0.0,
             directory: row.get(1)?,
-            title: row.get(2)?,
+            id: row.get(0)?,
             messages: Vec::new(),
+            model: None,
             time: Time {
               created: row.get_u64(3)?,
               updated: row.get_u64(4)?,
             },
+            title: row.get(2)?,
+            tokens: 0,
           })
         })
         .context("could not read OpenCode sessions")?
         .collect::<rusqlite::Result<Vec<_>>>()
         .context("could not read OpenCode sessions")?
+    };
+
+    let usage = {
+      let mut statement = connection
+        .prepare(
+          "
+            WITH assistant_messages AS (
+              SELECT
+                session_id,
+                COALESCE(json_extract(data, '$.modelID'), '') AS model,
+                COALESCE(json_extract(data, '$.cost'), 0) AS cost,
+                COALESCE(json_extract(data, '$.tokens.input'), 0)
+                  + COALESCE(json_extract(data, '$.tokens.output'), 0)
+                  + COALESCE(json_extract(data, '$.tokens.reasoning'), 0)
+                  + COALESCE(json_extract(data, '$.tokens.cache.read'), 0)
+                  + COALESCE(json_extract(data, '$.tokens.cache.write'), 0)
+                  AS tokens,
+                ROW_NUMBER() OVER (
+                  PARTITION BY session_id
+                  ORDER BY time_created DESC, id DESC
+                ) AS position
+              FROM message
+              WHERE json_extract(data, '$.role') = 'assistant'
+            )
+            SELECT
+              session_id,
+              MAX(CASE WHEN position = 1 THEN model END),
+              TOTAL(cost),
+              SUM(tokens)
+            FROM assistant_messages
+            GROUP BY session_id
+          ",
+        )
+        .context("could not query OpenCode usage")?;
+
+      statement
+        .query_map([], |row| {
+          Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get_u64(3)?,
+          ))
+        })
+        .context("could not read OpenCode usage")?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .context("could not read OpenCode usage")?
     };
 
     if let Some(directory) = directory {
@@ -313,6 +366,14 @@ impl Storage {
       .map(|(index, session)| (session.id.clone(), index))
       .collect::<HashMap<_, _>>();
 
+    for (session_id, model, cost, tokens) in usage {
+      if let Some(&index) = session_indexes.get(&session_id) {
+        sessions[index].cost = cost;
+        sessions[index].model = (!model.is_empty()).then_some(model);
+        sessions[index].tokens = tokens;
+      }
+    }
+
     let mut messages = messages
       .into_iter()
       .filter_map(|message| {
@@ -392,8 +453,9 @@ mod tests {
             data TEXT NOT NULL
           );
           INSERT INTO session VALUES ('ses_foo', '/tmp/foo', NULL, 'Add picker', 1, 2);
-          INSERT INTO message VALUES ('msg_one', 'ses_foo', 2, '{"role":"assistant"}');
+          INSERT INTO message VALUES ('msg_one', 'ses_foo', 2, '{"role":"assistant","modelID":"model-foo","cost":0.125,"tokens":{"input":1,"output":2,"reasoning":3,"cache":{"read":4,"write":5}}}');
           INSERT INTO message VALUES ('msg_two', 'ses_foo', 1, '{"role":"user"}');
+          INSERT INTO message VALUES ('msg_three', 'ses_foo', 3, '{"role":"assistant","modelID":"model-bar","cost":0.25,"tokens":{"input":5}}');
           INSERT INTO part VALUES ('prt_one', 'msg_one', 'ses_foo', 2, '{"type":"text","text":"Use skim"}');
           INSERT INTO part VALUES ('prt_two', 'msg_two', 'ses_foo', 1, '{"type":"text","text":"Build a picker"}');
         "#,
@@ -416,6 +478,9 @@ mod tests {
       "Add picker\n/tmp/foo\nses_foo\nBuild a picker"
     );
     assert_eq!(sessions[0].messages.len(), 1);
+    assert_eq!(sessions[0].model.as_deref(), Some("model-bar"));
+    assert!((sessions[0].cost - 0.375).abs() < f64::EPSILON);
+    assert_eq!(sessions[0].tokens, 20);
 
     let session = Storage::new(temp.path().join("opencode.db"))
       .get_session("ses_foo")
