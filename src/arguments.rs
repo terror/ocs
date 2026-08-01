@@ -7,7 +7,12 @@ pub(crate) struct Arguments {
   pub(crate) all: bool,
   #[arg(long, value_name = "PATH", help = "OpenCode data directory")]
   pub(crate) data_dir: Option<PathBuf>,
-  #[arg(long, value_name = "PATH", help = "OpenCode database file")]
+  #[arg(
+    long,
+    value_name = "PATH",
+    conflicts_with = "data_dir",
+    help = "OpenCode database file"
+  )]
   pub(crate) database: Option<PathBuf>,
   #[arg(long, help = "Print the selected session ID instead of opening it")]
   pub(crate) print: bool,
@@ -17,10 +22,12 @@ pub(crate) struct Arguments {
 
 impl Arguments {
   pub(crate) fn run(self) -> Result {
-    let storage = match (self.database, self.data_dir) {
-      (Some(database), _) => Storage::new(database),
-      (None, Some(data_dir)) => Storage::new(data_dir.join("opencode.db")),
-      (None, None) => Storage::default()?,
+    let storage = if let Some(database) = self.database {
+      Storage::new(database)
+    } else if let Some(data_dir) = self.data_dir {
+      Storage::new(data_dir.join("opencode.db"))
+    } else {
+      Storage::default()?
     };
 
     storage.validate_schema()?;
@@ -73,5 +80,20 @@ impl Arguments {
         }
       }
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use {super::*, clap::CommandFactory};
+
+  #[test]
+  fn database_and_data_dir_conflict() {
+    let error = Arguments::command()
+      .try_get_matches_from(["ocs", "--database", "foo", "--data-dir", "bar"])
+      .err()
+      .unwrap();
+
+    assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
   }
 }
