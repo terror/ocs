@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.3](https://github.com/terror/ocs/releases/tag/0.1.3) - 2026-07-31
+
+### Added
+
+- Filter out subagent sessions ([#12](https://github.com/terror/ocs/pull/12) by [terror](https://github.com/terror))
+- Default to sessions in the current directory ([#13](https://github.com/terror/ocs/pull/13) by [terror](https://github.com/terror))
+- Show usage metadata in session rows ([#17](https://github.com/terror/ocs/pull/17) by [terror](https://github.com/terror))
+
+### Fixed
+
+- Delete sessions through opencode directly ([#14](https://github.com/terror/ocs/pull/14) by [terror](https://github.com/terror))
+- Make transcript ordering deterministic ([#16](https://github.com/terror/ocs/pull/16) by [terror](https://github.com/terror))
+
+### Misc
+
+- Bump skim from 5.5.0 to 5.6.1 ([#11](https://github.com/terror/ocs/pull/11) by [app/dependabot](https://github.com/app/dependabot))
+
 ## [0.1.2](https://github.com/terror/ocs/releases/tag/0.1.2) - 2026-07-27
 
 ### Added
