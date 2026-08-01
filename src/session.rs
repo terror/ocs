@@ -4,11 +4,14 @@ const MAX_SEARCH_MESSAGE_CHARS: usize = 512;
 const MAX_SEARCH_MESSAGES: usize = 4;
 
 pub(crate) struct Session {
+  pub(crate) cost: f64,
   pub(crate) directory: String,
   pub(crate) id: String,
   pub(crate) messages: Vec<Message>,
+  pub(crate) model: Option<String>,
   pub(crate) time: Time,
   pub(crate) title: String,
+  pub(crate) tokens: u64,
 }
 
 impl Session {
@@ -128,6 +131,7 @@ mod tests {
   #[test]
   fn search_text_uses_recent_user_messages() {
     let session = Session {
+      cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),
       messages: vec![
@@ -174,8 +178,10 @@ mod tests {
           time: Time::default(),
         },
       ],
+      model: None,
       time: Time::default(),
       title: "foo".into(),
+      tokens: 0,
     };
 
     assert_eq!(
@@ -189,6 +195,7 @@ mod tests {
     let text = format!("{}bar", "é".repeat(MAX_SEARCH_MESSAGE_CHARS));
 
     let session = Session {
+      cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),
       messages: vec![Message {
@@ -198,8 +205,10 @@ mod tests {
         text,
         time: Time::default(),
       }],
+      model: None,
       time: Time::default(),
       title: "foo".into(),
+      tokens: 0,
     };
 
     assert_eq!(

@@ -15,6 +15,9 @@ four most recent user prompts. The selected session is reopened with
 `opencode --session` in its original directory when that directory still
 exists.
 
+Each row shows when the session was updated, its model, cost, and total token
+usage.
+
 By default, `ocs` shows only sessions started in the current directory.
 
 The preview shows the session title, directory, ID, and complete text-message
