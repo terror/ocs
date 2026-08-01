@@ -84,6 +84,10 @@ impl SkimItem for SessionItem {
       metadata.push(Span::styled(value.to_owned(), style));
     };
 
+    if let Some(project) = &self.project {
+      push_metadata(project, muted);
+    }
+
     push_metadata(&self.updated, muted);
 
     if let Some(model) = &self.model {
@@ -98,14 +102,8 @@ impl SkimItem for SessionItem {
       push_metadata(tokens, muted);
     }
 
-    let mut line = vec![Span::raw(self.title.as_str())];
+    let mut line = vec![Span::raw(self.title.as_str()), Span::raw("  ")];
 
-    if let Some(project) = &self.project {
-      line.push(Span::raw("  "));
-      line.push(Span::styled(project.as_str(), muted));
-    }
-
-    line.push(Span::raw("  "));
     line.extend(metadata);
 
     Line::from(line)
@@ -175,6 +173,8 @@ mod tests {
     assert_eq!(display.spans[1].content, "  ");
     assert_eq!(display.spans[2].content, "bar");
     assert_eq!(display.spans[2].style.fg, Some(DARK_GRAY));
+    assert_eq!(display.spans[3].content, " · ");
+    assert_eq!(display.spans[3].style.fg, Some(DARK_GRAY));
 
     let item = SessionItem::new(&storage, &session, false);
 
