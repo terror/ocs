@@ -1,5 +1,24 @@
 use super::*;
 
+const REQUIRED_SCHEMA: &[(&str, &[&str])] = &[
+  (
+    "session",
+    &[
+      "id",
+      "directory",
+      "parent_id",
+      "title",
+      "time_created",
+      "time_updated",
+    ],
+  ),
+  ("message", &["id", "session_id", "time_created", "data"]),
+  (
+    "part",
+    &["id", "message_id", "session_id", "time_created", "data"],
+  ),
+];
+
 pub(crate) struct Storage {
   pub(crate) database: PathBuf,
 }
@@ -417,6 +436,67 @@ impl Storage {
 
     Ok(sessions)
   }
+
+  pub(crate) fn validate_schema(&self) -> Result {
+    let connection = Connection::open_with_flags(
+      &self.database,
+      OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .with_context(|| {
+      format!(
+        "could not open OpenCode database {}",
+        self.database.display()
+      )
+    })?;
+
+    let tables = {
+      let mut statement = connection
+        .prepare("SELECT name FROM sqlite_schema WHERE type = 'table'")
+        .context("could not inspect OpenCode schema")?;
+
+      statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .context("could not inspect OpenCode schema")?
+        .collect::<rusqlite::Result<HashSet<_>>>()
+        .context("could not inspect OpenCode schema")?
+    };
+
+    let mut statement = connection
+      .prepare("SELECT name FROM pragma_table_info(?)")
+      .context("could not inspect OpenCode schema")?;
+
+    let mut missing = Vec::new();
+
+    for (table, required_columns) in REQUIRED_SCHEMA {
+      if !tables.contains(*table) {
+        missing.push(format!("table `{table}`"));
+        continue;
+      }
+
+      let columns = statement
+        .query_map([table], |row| row.get::<_, String>(0))
+        .context("could not inspect OpenCode schema")?
+        .collect::<rusqlite::Result<HashSet<_>>>()
+        .context("could not inspect OpenCode schema")?;
+
+      for column in *required_columns {
+        if !columns.contains(*column) {
+          missing.push(format!("column `{table}.{column}`"));
+        }
+      }
+    }
+
+    if !missing.is_empty() {
+      bail!(
+        "unsupported OpenCode schema in {}: missing {}; update ocs or use \
+         --database to select a compatible OpenCode database",
+        self.database.display(),
+        missing.join(", "),
+      );
+    }
+
+    Ok(())
+  }
 }
 
 #[cfg(test)]
@@ -469,9 +549,11 @@ mod tests {
   fn indexes_sqlite_sessions() {
     let (temp, _) = database();
 
-    let sessions = Storage::new(temp.path().join("opencode.db"))
-      .sessions(None)
-      .unwrap();
+    let storage = Storage::new(temp.path().join("opencode.db"));
+
+    storage.validate_schema().unwrap();
+
+    let sessions = storage.sessions(None).unwrap();
 
     assert_eq!(
       sessions[0].search_text(),
@@ -482,9 +564,7 @@ mod tests {
     assert!((sessions[0].cost - 0.375).abs() < f64::EPSILON);
     assert_eq!(sessions[0].tokens, 20);
 
-    let session = Storage::new(temp.path().join("opencode.db"))
-      .get_session("ses_foo")
-      .unwrap();
+    let session = storage.get_session("ses_foo").unwrap();
 
     assert_eq!(
       session.preview(),
@@ -562,5 +642,35 @@ mod tests {
 
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].id, "ses_foo");
+  }
+
+  #[test]
+  fn rejects_unsupported_schema() {
+    #[track_caller]
+    fn case(change: &str, missing: &str) {
+      let (temp, connection) = database();
+
+      connection.execute_batch(change).unwrap();
+
+      let database = temp.path().join("opencode.db");
+      let error = Storage::new(database.clone())
+        .validate_schema()
+        .unwrap_err();
+
+      assert_eq!(
+        error.to_string(),
+        format!(
+          "unsupported OpenCode schema in {}: missing {missing}; update ocs or \
+           use --database to select a compatible OpenCode database",
+          database.display(),
+        )
+      );
+    }
+
+    case("DROP TABLE part", "table `part`");
+    case(
+      "ALTER TABLE session DROP COLUMN title",
+      "column `session.title`",
+    );
   }
 }
