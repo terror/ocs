@@ -15,14 +15,8 @@ pub(crate) struct Session {
 }
 
 impl Session {
-  pub(crate) fn open(&self) -> Result {
-    let mut command = Command::new("opencode");
-
-    command.arg("--session").arg(&self.id);
-
-    if Path::new(&self.directory).is_dir() {
-      command.current_dir(&self.directory);
-    }
+  pub(crate) fn open(&self, storage: &Storage) -> Result {
+    let mut command = self.open_command(storage);
 
     let status = command.status().context("could not start opencode")?;
 
@@ -31,6 +25,21 @@ impl Session {
     }
 
     Ok(())
+  }
+
+  fn open_command(&self, storage: &Storage) -> Command {
+    let mut command = Command::new("opencode");
+
+    command
+      .arg("--session")
+      .arg(&self.id)
+      .env("OPENCODE_DB", &storage.database);
+
+    if Path::new(&self.directory).is_dir() {
+      command.current_dir(&self.directory);
+    }
+
+    command
   }
 
   pub(crate) fn preview(&self) -> String {
@@ -127,6 +136,30 @@ impl Session {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn open_forwards_database() {
+    let session = Session {
+      cost: 0.0,
+      directory: "bar".into(),
+      id: "ses_foo".into(),
+      messages: Vec::new(),
+      model: None,
+      time: Time::default(),
+      title: "foo".into(),
+      tokens: 0,
+    };
+
+    let command = session.open_command(&Storage::new("foo.db".into()));
+
+    assert_eq!(
+      command
+        .get_envs()
+        .find(|(key, _)| *key == "OPENCODE_DB")
+        .and_then(|(_, value)| value),
+      Some(std::ffi::OsStr::new("foo.db")),
+    );
+  }
 
   #[test]
   fn search_text_uses_recent_user_messages() {

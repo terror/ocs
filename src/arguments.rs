@@ -76,7 +76,7 @@ impl Arguments {
             .find(|session| session.id == id)
             .context("selected session was not indexed")?;
 
-          return session.open();
+          return session.open(&storage);
         }
       }
     }
