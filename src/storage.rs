@@ -540,6 +540,44 @@ mod tests {
   }
 
   #[test]
+  fn excludes_subagent_sessions() {
+    let (temp, connection) = database();
+
+    connection
+      .execute(
+        "INSERT INTO session VALUES ('ses_baz', '/tmp/foo', 'ses_foo', 'Baz', 3, 4)",
+        [],
+      )
+      .unwrap();
+
+    let sessions = Storage::new(temp.path().join("opencode.db"))
+      .sessions(None)
+      .unwrap();
+
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, "ses_foo");
+  }
+
+  #[test]
+  fn filters_sessions_by_directory() {
+    let (temp, connection) = database();
+
+    connection
+      .execute(
+        "INSERT INTO session VALUES ('ses_bar', '/tmp/bar', NULL, 'Bar', 3, 4)",
+        [],
+      )
+      .unwrap();
+
+    let sessions = Storage::new(temp.path().join("opencode.db"))
+      .sessions(Some(Path::new("/tmp/bar")))
+      .unwrap();
+
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].id, "ses_bar");
+  }
+
+  #[test]
   fn indexes_sqlite_sessions() {
     let (temp, _) = database();
 
@@ -576,25 +614,6 @@ mod tests {
   }
 
   #[test]
-  fn filters_sessions_by_directory() {
-    let (temp, connection) = database();
-
-    connection
-      .execute(
-        "INSERT INTO session VALUES ('ses_bar', '/tmp/bar', NULL, 'Bar', 3, 4)",
-        [],
-      )
-      .unwrap();
-
-    let sessions = Storage::new(temp.path().join("opencode.db"))
-      .sessions(Some(Path::new("/tmp/bar")))
-      .unwrap();
-
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].id, "ses_bar");
-  }
-
-  #[test]
   fn orders_transcript_by_time_and_id() {
     let (temp, connection) = database();
 
@@ -617,25 +636,6 @@ mod tests {
     assert_eq!(session.messages[0].id, "msg_bar");
     assert_eq!(session.messages[0].text, "bar\nfoo");
     assert_eq!(session.messages[1].id, "msg_foo");
-  }
-
-  #[test]
-  fn excludes_subagent_sessions() {
-    let (temp, connection) = database();
-
-    connection
-      .execute(
-        "INSERT INTO session VALUES ('ses_baz', '/tmp/foo', 'ses_foo', 'Baz', 3, 4)",
-        [],
-      )
-      .unwrap();
-
-    let sessions = Storage::new(temp.path().join("opencode.db"))
-      .sessions(None)
-      .unwrap();
-
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].id, "ses_foo");
   }
 
   #[test]

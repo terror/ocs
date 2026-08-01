@@ -159,6 +159,36 @@ mod tests {
   }
 
   #[test]
+  fn search_text_truncates_messages_at_character_boundary() {
+    let text = format!("{}bar", "é".repeat(MAX_SEARCH_MESSAGE_CHARS));
+
+    let session = Session {
+      cost: 0.0,
+      directory: "bar".into(),
+      id: "ses_foo".into(),
+      messages: vec![Message {
+        id: "msg_foo".into(),
+        role: "user".into(),
+        session_id: "ses_foo".into(),
+        text,
+        time: Time::default(),
+      }],
+      model: None,
+      time: Time::default(),
+      title: "foo".into(),
+      tokens: 0,
+    };
+
+    assert_eq!(
+      session.search_text(),
+      format!(
+        "foo\nbar\nses_foo\n{}",
+        "é".repeat(MAX_SEARCH_MESSAGE_CHARS)
+      )
+    );
+  }
+
+  #[test]
   fn search_text_uses_recent_user_messages() {
     let session = Session {
       cost: 0.0,
@@ -217,36 +247,6 @@ mod tests {
     assert_eq!(
       session.search_text(),
       "foo\nbar\nses_foo\nfive\nfour\nthree\ntwo"
-    );
-  }
-
-  #[test]
-  fn search_text_truncates_messages_at_character_boundary() {
-    let text = format!("{}bar", "é".repeat(MAX_SEARCH_MESSAGE_CHARS));
-
-    let session = Session {
-      cost: 0.0,
-      directory: "bar".into(),
-      id: "ses_foo".into(),
-      messages: vec![Message {
-        id: "msg_foo".into(),
-        role: "user".into(),
-        session_id: "ses_foo".into(),
-        text,
-        time: Time::default(),
-      }],
-      model: None,
-      time: Time::default(),
-      title: "foo".into(),
-      tokens: 0,
-    };
-
-    assert_eq!(
-      session.search_text(),
-      format!(
-        "foo\nbar\nses_foo\n{}",
-        "é".repeat(MAX_SEARCH_MESSAGE_CHARS)
-      )
     );
   }
 }
