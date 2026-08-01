@@ -538,6 +538,7 @@ mod tests {
 
     (temp, connection)
   }
+
   #[test]
   fn excludes_subagent_sessions() {
     let (temp, connection) = database();

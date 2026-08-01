@@ -137,6 +137,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
   use super::*;
+
   #[test]
   fn open_forwards_database() {
     let session = Session {
