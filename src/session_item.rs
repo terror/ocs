@@ -121,7 +121,7 @@ impl SkimItem for SessionItem {
         .preview
         .get_or_init(|| {
           Storage::new(self.database.clone())
-            .get_session(&self.id)
+            .and_then(|storage| storage.get_session(&self.id))
             .map_or_else(
               |error| format!("could not load preview: {error}"),
               |session| session.preview(),
@@ -164,7 +164,7 @@ mod tests {
 
   #[test]
   fn project_name_visibility() {
-    let storage = Storage::new("/tmp/foo.db".into());
+    let storage = Storage::new("/tmp/foo.db".into()).unwrap();
     let session = session();
 
     let item = SessionItem::new(&storage, &session, true);
@@ -185,8 +185,11 @@ mod tests {
 
   #[test]
   fn renders_metadata() {
-    let item =
-      SessionItem::new(&Storage::new("/tmp/foo.db".into()), &session(), false);
+    let item = SessionItem::new(
+      &Storage::new("/tmp/foo.db".into()).unwrap(),
+      &session(),
+      false,
+    );
 
     let display = item.display(DisplayContext {
       container_width: 100,

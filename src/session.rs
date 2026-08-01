@@ -147,15 +147,16 @@ mod tests {
       ..Default::default()
     };
 
-    let command = session.open_command(&Storage::new("foo.db".into()));
+    let storage = Storage::new("foo.db".into()).unwrap();
 
-    assert_eq!(
-      command
-        .get_envs()
-        .find(|(key, _)| *key == "OPENCODE_DB")
-        .and_then(|(_, value)| value),
-      Some(std::ffi::OsStr::new("foo.db")),
-    );
+    let command = session.open_command(&storage);
+
+    let database = command
+      .get_envs()
+      .find(|(key, _)| *key == "OPENCODE_DB")
+      .and_then(|(_, value)| value);
+
+    assert_eq!(database, Some(storage.database.as_os_str()),);
   }
 
   #[test]
