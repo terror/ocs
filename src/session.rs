@@ -3,6 +3,7 @@ use super::*;
 const MAX_SEARCH_MESSAGE_CHARS: usize = 512;
 const MAX_SEARCH_MESSAGES: usize = 4;
 
+#[derive(Default)]
 pub(crate) struct Session {
   pub(crate) cost: f64,
   pub(crate) directory: String,
@@ -140,14 +141,10 @@ mod tests {
   #[test]
   fn open_forwards_database() {
     let session = Session {
-      cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),
-      messages: Vec::new(),
-      model: None,
-      time: Time::default(),
       title: "foo".into(),
-      tokens: 0,
+      ..Default::default()
     };
 
     let command = session.open_command(&Storage::new("foo.db".into()));

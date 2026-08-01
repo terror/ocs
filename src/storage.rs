@@ -88,17 +88,14 @@ impl Storage {
         [id],
         |row| {
           Ok(Session {
-            cost: 0.0,
             directory: row.get(1)?,
             id: row.get(0)?,
-            messages: Vec::new(),
-            model: None,
             time: Time {
               created: row.get_u64(3)?,
               updated: row.get_u64(4)?,
             },
             title: row.get(2)?,
-            tokens: 0,
+            ..Default::default()
           })
         },
       )
@@ -225,17 +222,14 @@ impl Storage {
       statement
         .query_map([], |row| {
           Ok(Session {
-            cost: 0.0,
             directory: row.get(1)?,
             id: row.get(0)?,
-            messages: Vec::new(),
-            model: None,
             time: Time {
               created: row.get_u64(3)?,
               updated: row.get_u64(4)?,
             },
             title: row.get(2)?,
-            tokens: 0,
+            ..Default::default()
           })
         })
         .context("could not read OpenCode sessions")?
