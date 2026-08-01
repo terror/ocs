@@ -16,7 +16,7 @@ use {
   skim::prelude::*,
   std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
     fmt::{self, Display, Formatter, Write},
     path::{Path, PathBuf},

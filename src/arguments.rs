@@ -23,6 +23,8 @@ impl Arguments {
       (None, None) => Storage::default()?,
     };
 
+    storage.validate_schema()?;
+
     let directory = if self.all {
       None
     } else {
