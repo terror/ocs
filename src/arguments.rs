@@ -85,8 +85,7 @@ impl Arguments {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
-  use clap::CommandFactory;
+  use {super::*, clap::CommandFactory};
 
   #[test]
   fn database_and_data_dir_conflict() {
