@@ -26,7 +26,7 @@ pub(crate) struct Storage {
 impl Storage {
   pub(crate) fn default() -> Result<Self> {
     if let Some(database) = Self::discover() {
-      return Ok(Self::new(database));
+      return Self::new(database);
     }
 
     let data_home = env::var_os("XDG_DATA_HOME")
@@ -38,7 +38,7 @@ impl Storage {
         "could not determine an OpenCode data directory; pass --data-dir or --database",
       )?;
 
-    Ok(Self::new(data_home.join("opencode").join("opencode.db")))
+    Self::new(data_home.join("opencode").join("opencode.db"))
   }
 
   pub(crate) fn delete_session(&self, id: &str) -> Result {
@@ -189,8 +189,16 @@ impl Storage {
     Ok(session)
   }
 
-  pub(crate) fn new(database: PathBuf) -> Self {
-    Self { database }
+  pub(crate) fn new(database: PathBuf) -> Result<Self> {
+    let database = if database.is_absolute() {
+      database
+    } else {
+      env::current_dir()
+        .context("could not determine the current directory")?
+        .join(database)
+    };
+
+    Ok(Self { database })
   }
 
   pub(crate) fn sessions(
@@ -551,6 +559,7 @@ mod tests {
       .unwrap();
 
     let sessions = Storage::new(temp.path().join("opencode.db"))
+      .unwrap()
       .sessions(None)
       .unwrap();
 
@@ -570,6 +579,7 @@ mod tests {
       .unwrap();
 
     let sessions = Storage::new(temp.path().join("opencode.db"))
+      .unwrap()
       .sessions(Some(Path::new("/tmp/bar")))
       .unwrap();
 
@@ -581,7 +591,7 @@ mod tests {
   fn indexes_sqlite_sessions() {
     let (temp, _) = database();
 
-    let storage = Storage::new(temp.path().join("opencode.db"));
+    let storage = Storage::new(temp.path().join("opencode.db")).unwrap();
 
     storage.validate_schema().unwrap();
 
@@ -614,6 +624,13 @@ mod tests {
   }
 
   #[test]
+  fn makes_relative_database_paths_absolute() {
+    let storage = Storage::new("foo.db".into()).unwrap();
+
+    assert_eq!(storage.database, env::current_dir().unwrap().join("foo.db"));
+  }
+
+  #[test]
   fn orders_transcript_by_time_and_id() {
     let (temp, connection) = database();
 
@@ -630,6 +647,7 @@ mod tests {
       .unwrap();
 
     let session = Storage::new(temp.path().join("opencode.db"))
+      .unwrap()
       .get_session("ses_bar")
       .unwrap();
 
@@ -647,7 +665,9 @@ mod tests {
       connection.execute_batch(change).unwrap();
 
       let database = temp.path().join("opencode.db");
+
       let error = Storage::new(database.clone())
+        .unwrap()
         .validate_schema()
         .unwrap_err();
 
@@ -662,6 +682,7 @@ mod tests {
     }
 
     case("DROP TABLE part", "table `part`");
+
     case(
       "ALTER TABLE session DROP COLUMN title",
       "column `session.title`",
