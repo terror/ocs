@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.4](https://github.com/terror/ocs/releases/tag/0.1.4) - 2026-08-03
+
+### Added
+
+- Validate opencode database schema ([#19](https://github.com/terror/ocs/pull/19) by [terror](https://github.com/terror))
+- Allow configuring opencode session arguments ([#26](https://github.com/terror/ocs/pull/26) by [terror](https://github.com/terror))
+
+### Fixed
+
+- Make `--database` and `--data-dir` conflicting ([#20](https://github.com/terror/ocs/pull/20) by [terror](https://github.com/terror))
+- Forward database when opening sessions ([#21](https://github.com/terror/ocs/pull/21) by [terror](https://github.com/terror))
+- Normalize database paths ([#24](https://github.com/terror/ocs/pull/24) by [terror](https://github.com/terror))
+- Separate project with dots in session rows ([#25](https://github.com/terror/ocs/pull/25) by [terror](https://github.com/terror))
+
+### Misc
+
+- Derive `Default` for `Session` ([#22](https://github.com/terror/ocs/pull/22) by [terror](https://github.com/terror))
+- Sort tests alphabetically ([#23](https://github.com/terror/ocs/pull/23) by [terror](https://github.com/terror))
+
 ## [0.1.3](https://github.com/terror/ocs/releases/tag/0.1.3) - 2026-07-31
 
 ### Added
