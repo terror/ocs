@@ -111,6 +111,22 @@ ocs() {
 The function forwards arguments to `ocs`, so `ocs --query picker` works as
 usual.
 
+## Configuration
+
+On first run, `ocs` creates `config.toml` in the platform configuration
+directory selected by `confy`. On Linux and macOS this is normally
+`$XDG_CONFIG_HOME/ocs/config.toml`, or `~/.config/ocs/config.toml` when
+`XDG_CONFIG_HOME` is unset.
+
+Set `opencode_args` to pass additional arguments whenever a session is opened:
+
+```toml
+opencode_args = ["--auto"]
+```
+
+Each array entry is passed to OpenCode as one argument. These arguments do not
+affect database discovery or session deletion commands.
+
 ## Database
 
 By default, `ocs` discovers the active OpenCode database by running

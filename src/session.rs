@@ -16,8 +16,8 @@ pub(crate) struct Session {
 }
 
 impl Session {
-  pub(crate) fn open(&self, storage: &Storage) -> Result {
-    let mut command = self.open_command(storage);
+  pub(crate) fn open(&self, config: &Config, storage: &Storage) -> Result {
+    let mut command = self.open_command(config, storage);
 
     let status = command.status().context("could not start opencode")?;
 
@@ -28,12 +28,13 @@ impl Session {
     Ok(())
   }
 
-  fn open_command(&self, storage: &Storage) -> Command {
+  fn open_command(&self, config: &Config, storage: &Storage) -> Command {
     let mut command = Command::new("opencode");
 
     command
       .arg("--session")
       .arg(&self.id)
+      .args(&config.opencode_args)
       .env("OPENCODE_DB", &storage.database);
 
     if Path::new(&self.directory).is_dir() {
@@ -149,7 +150,7 @@ mod tests {
 
     let storage = Storage::new("foo.db".into()).unwrap();
 
-    let command = session.open_command(&storage);
+    let command = session.open_command(&Config::default(), &storage);
 
     let database = command
       .get_envs()
@@ -157,6 +158,28 @@ mod tests {
       .and_then(|(_, value)| value);
 
     assert_eq!(database, Some(storage.database.as_os_str()),);
+  }
+
+  #[test]
+  fn open_forwards_configured_arguments() {
+    let session = Session {
+      id: "ses_foo".into(),
+      ..Default::default()
+    };
+
+    let config = Config {
+      opencode_args: vec!["--auto".into(), "--model=foo bar".into()],
+    };
+
+    let storage = Storage::new("foo.db".into()).unwrap();
+
+    assert_eq!(
+      session
+        .open_command(&config, &storage)
+        .get_args()
+        .collect::<Vec<_>>(),
+      ["--session", "ses_foo", "--auto", "--model=foo bar"],
+    );
   }
 
   #[test]

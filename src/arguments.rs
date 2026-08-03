@@ -22,6 +22,8 @@ pub(crate) struct Arguments {
 
 impl Arguments {
   pub(crate) fn run(self) -> Result {
+    let config = Config::load()?;
+
     let storage = if let Some(database) = self.database {
       Storage::new(database)?
     } else if let Some(data_dir) = self.data_dir {
@@ -76,7 +78,7 @@ impl Arguments {
             .find(|session| session.id == id)
             .context("selected session was not indexed")?;
 
-          return session.open(&storage);
+          return session.open(&config, &storage);
         }
       }
     }
