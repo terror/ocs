@@ -2,6 +2,7 @@ use {
   anyhow::{Context, bail},
   arguments::Arguments,
   clap::Parser,
+  config::Config,
   message::Message,
   ratatui::{
     style::{Color, Style},
@@ -10,6 +11,7 @@ use {
   row_ext::RowExt,
   rusqlite::{Connection, OpenFlags, OptionalExtension},
   selection::Selection,
+  serde::{Deserialize, Serialize},
   session::Session,
   session_item::SessionItem,
   session_picker::SessionPicker,
@@ -33,6 +35,7 @@ use {
 };
 
 mod arguments;
+mod config;
 mod message;
 mod row_ext;
 mod selection;
