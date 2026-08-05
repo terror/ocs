@@ -506,8 +506,10 @@ mod tests {
   use super::*;
 
   fn database() -> (tempfile::TempDir, Connection) {
-    let temp = tempfile::tempdir().unwrap();
-    let database = temp.path().join("opencode.db");
+    let directory = tempfile::tempdir().unwrap();
+
+    let database = directory.path().join("opencode.db");
+
     let connection = Connection::open(database).unwrap();
 
     connection
@@ -521,12 +523,14 @@ mod tests {
             time_created INTEGER NOT NULL,
             time_updated INTEGER NOT NULL
           );
+
           CREATE TABLE message (
             id TEXT NOT NULL,
             session_id TEXT NOT NULL,
             time_created INTEGER NOT NULL,
             data TEXT NOT NULL
           );
+
           CREATE TABLE part (
             id TEXT NOT NULL,
             message_id TEXT NOT NULL,
@@ -534,17 +538,51 @@ mod tests {
             time_created INTEGER NOT NULL,
             data TEXT NOT NULL
           );
-          INSERT INTO session VALUES ('ses_foo', '/tmp/foo', NULL, 'Add picker', 1, 2);
-          INSERT INTO message VALUES ('msg_one', 'ses_foo', 2, '{"role":"assistant","modelID":"model-foo","cost":0.125,"tokens":{"input":1,"output":2,"reasoning":3,"cache":{"read":4,"write":5}}}');
-          INSERT INTO message VALUES ('msg_two', 'ses_foo', 1, '{"role":"user"}');
-          INSERT INTO message VALUES ('msg_three', 'ses_foo', 3, '{"role":"assistant","modelID":"model-bar","cost":0.25,"tokens":{"input":5}}');
-          INSERT INTO part VALUES ('prt_one', 'msg_one', 'ses_foo', 2, '{"type":"text","text":"Use skim"}');
-          INSERT INTO part VALUES ('prt_two', 'msg_two', 'ses_foo', 1, '{"type":"text","text":"Build a picker"}');
+
+          INSERT INTO session
+            VALUES ('ses_foo', '/tmp/foo', NULL, 'Add picker', 1, 2);
+
+          INSERT INTO message
+            VALUES (
+              'msg_one',
+              'ses_foo',
+              2,
+              '{"role":"assistant","modelID":"model-foo","cost":0.125,"tokens":{"input":1,"output":2,"reasoning":3,"cache":{"read":4,"write":5}}}'
+            );
+
+          INSERT INTO message
+            VALUES ('msg_two', 'ses_foo', 1, '{"role":"user"}');
+
+          INSERT INTO message
+            VALUES (
+              'msg_three',
+              'ses_foo',
+              3,
+              '{"role":"assistant","modelID":"model-bar","cost":0.25,"tokens":{"input":5}}'
+            );
+
+          INSERT INTO part
+            VALUES (
+              'prt_one',
+              'msg_one',
+              'ses_foo',
+              2,
+              '{"type":"text","text":"Use skim"}'
+            );
+
+          INSERT INTO part
+            VALUES (
+              'prt_two',
+              'msg_two',
+              'ses_foo',
+              1,
+              '{"type":"text","text":"Build a picker"}'
+            );
         "#,
       )
       .unwrap();
 
-    (temp, connection)
+    (directory, connection)
   }
 
   #[test]
@@ -563,8 +601,31 @@ mod tests {
       .sessions(None)
       .unwrap();
 
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].id, "ses_foo");
+    assert_eq!(
+      sessions,
+      vec![Session {
+        cost: 0.375,
+        directory: "/tmp/foo".into(),
+        id: "ses_foo".into(),
+        messages: vec![Message {
+          id: "msg_two".into(),
+          role: "user".into(),
+          session_id: "ses_foo".into(),
+          text: "Build a picker".into(),
+          time: Time {
+            created: 1,
+            updated: 0,
+          },
+        }],
+        model: Some("model-bar".into()),
+        time: Time {
+          created: 1,
+          updated: 2,
+        },
+        title: "Add picker".into(),
+        tokens: 20,
+      }]
+    );
   }
 
   #[test]
@@ -583,8 +644,19 @@ mod tests {
       .sessions(Some(Path::new("/tmp/bar")))
       .unwrap();
 
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].id, "ses_bar");
+    assert_eq!(
+      sessions,
+      vec![Session {
+        directory: "/tmp/bar".into(),
+        id: "ses_bar".into(),
+        time: Time {
+          created: 3,
+          updated: 4,
+        },
+        title: "Bar".into(),
+        ..Default::default()
+      }]
+    );
   }
 
   #[test]
@@ -598,13 +670,35 @@ mod tests {
     let sessions = storage.sessions(None).unwrap();
 
     assert_eq!(
-      sessions[0].search_text(),
+      sessions,
+      vec![Session {
+        cost: 0.375,
+        directory: "/tmp/foo".into(),
+        id: "ses_foo".into(),
+        messages: vec![Message {
+          id: "msg_two".into(),
+          role: "user".into(),
+          session_id: "ses_foo".into(),
+          text: "Build a picker".into(),
+          time: Time {
+            created: 1,
+            updated: 0,
+          },
+        }],
+        model: Some("model-bar".into()),
+        time: Time {
+          created: 1,
+          updated: 2,
+        },
+        title: "Add picker".into(),
+        tokens: 20,
+      }]
+    );
+
+    assert_eq!(
+      sessions.first().unwrap().search_text(),
       "Add picker\n/tmp/foo\nses_foo\nBuild a picker"
     );
-    assert_eq!(sessions[0].messages.len(), 1);
-    assert_eq!(sessions[0].model.as_deref(), Some("model-bar"));
-    assert!((sessions[0].cost - 0.375).abs() < f64::EPSILON);
-    assert_eq!(sessions[0].tokens, 20);
 
     let session = storage.get_session("ses_foo").unwrap();
 
@@ -651,9 +745,31 @@ mod tests {
       .get_session("ses_bar")
       .unwrap();
 
-    assert_eq!(session.messages[0].id, "msg_bar");
-    assert_eq!(session.messages[0].text, "bar\nfoo");
-    assert_eq!(session.messages[1].id, "msg_foo");
+    assert_eq!(
+      session.messages,
+      vec![
+        Message {
+          id: "msg_bar".into(),
+          role: "user".into(),
+          session_id: "ses_bar".into(),
+          text: "bar\nfoo".into(),
+          time: Time {
+            created: 5,
+            updated: 0,
+          },
+        },
+        Message {
+          id: "msg_foo".into(),
+          role: "assistant".into(),
+          session_id: "ses_bar".into(),
+          text: String::new(),
+          time: Time {
+            created: 5,
+            updated: 0,
+          },
+        },
+      ]
+    );
   }
 
   #[test]

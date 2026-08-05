@@ -3,7 +3,7 @@ use super::*;
 const MAX_SEARCH_MESSAGE_CHARS: usize = 512;
 const MAX_SEARCH_MESSAGES: usize = 4;
 
-#[derive(Default)]
+#[derive(Debug, Default, PartialEq)]
 pub(crate) struct Session {
   pub(crate) cost: f64,
   pub(crate) directory: String,

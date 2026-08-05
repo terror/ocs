@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug, PartialEq)]
 pub(crate) struct Message {
   pub(crate) id: String,
   pub(crate) role: String,
