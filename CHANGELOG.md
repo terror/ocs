@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.5](https://github.com/terror/ocs/releases/tag/0.1.5) - 2026-08-05
+
+### Added
+
+- Add `zsh` shell integration ([#29](https://github.com/terror/ocs/pull/29) by [terror](https://github.com/terror))
+- Add `bash` shell integration ([#30](https://github.com/terror/ocs/pull/30) by [terror](https://github.com/terror))
+- Open selected sessions immediately ([#33](https://github.com/terror/ocs/pull/33) by [terror](https://github.com/terror))
+
+### Fixed
+
+- Change session search binding ([#31](https://github.com/terror/ocs/pull/31) by [terror](https://github.com/terror))
+
+### Misc
+
+- Update demo image in readme ([#28](https://github.com/terror/ocs/pull/28) by [terror](https://github.com/terror))
+- Assert full sessions in storage tests ([#32](https://github.com/terror/ocs/pull/32) by [terror](https://github.com/terror))
+
 ## [0.1.4](https://github.com/terror/ocs/releases/tag/0.1.4) - 2026-08-03
 
 ### Added
