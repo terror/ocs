@@ -23,8 +23,10 @@ _ocs_search() {
   local exit_code="$?"
 
   if (( exit_code == 0 )) && [[ -n "$session" ]]; then
-    BUFFER="opencode --session ${(q)session}"
-    CURSOR="${#BUFFER}"
+    BUFFER=""
+    CURSOR=0
+    command opencode --session "$session"
+    exit_code="$?"
   fi
 
   zle reset-prompt

@@ -112,7 +112,7 @@ eval "$(ocs init zsh)"
 ```
 
 The current command line is used as the initial search query. Selecting a
-session replaces it with the corresponding `opencode --session` command. The
+session clears the command line and opens the session immediately. The
 integration also defines an `ocs` function that passes the selected session ID
 to OpenCode. Arguments are forwarded to the `ocs` binary, so commands such as
 `ocs --query picker` continue to work.

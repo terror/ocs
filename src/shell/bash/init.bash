@@ -19,8 +19,10 @@ _ocs_search() {
   local exit_code="$?"
 
   if (( exit_code == 0 )) && [[ -n "$session" ]]; then
-    printf -v READLINE_LINE 'opencode --session %q' "$session"
-    READLINE_POINT="${#READLINE_LINE}"
+    READLINE_LINE=""
+    READLINE_POINT=0
+    command opencode --session "$session"
+    exit_code="$?"
   fi
 
   return "$exit_code"
