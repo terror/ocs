@@ -96,7 +96,16 @@ ocs --print
 
 ### Shell Integration
 
-Add this to your `.zshrc` to bind control-s to session history search:
+Add the appropriate command to your shell configuration to bind control-s to
+session history search.
+
+Bash (`.bashrc`):
+
+```bash
+eval "$(ocs init bash)"
+```
+
+Zsh (`.zshrc`):
 
 ```zsh
 eval "$(ocs init zsh)"
