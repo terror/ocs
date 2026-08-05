@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Debug, Default, PartialEq)]
 pub(crate) struct Time {
   pub(crate) created: u64,
   pub(crate) updated: u64,
