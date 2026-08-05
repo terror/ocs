@@ -96,8 +96,8 @@ ocs --print
 
 ### Shell Integration
 
-Add the appropriate command to your shell configuration to bind control-s to
-session history search.
+Add the appropriate command to your shell configuration to bind control-x
+followed by s to session history search.
 
 Bash (`.bashrc`):
 
