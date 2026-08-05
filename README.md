@@ -96,20 +96,17 @@ ocs --print
 
 ### Shell Integration
 
-Add this function to your `.bashrc` or `.zshrc` to pass the selected session ID
-to OpenCode:
+Add this to your `.zshrc` to bind control-s to session history search:
 
-```bash
-ocs() {
-  local session
-  session="$(command ocs --print "$@")" || return
-  [ -n "$session" ] || return
-  command opencode --session "$session"
-}
+```zsh
+eval "$(ocs init zsh)"
 ```
 
-The function forwards arguments to `ocs`, so `ocs --query picker` works as
-usual.
+The current command line is used as the initial search query. Selecting a
+session replaces it with the corresponding `opencode --session` command. The
+integration also defines an `ocs` function that passes the selected session ID
+to OpenCode. Arguments are forwarded to the `ocs` binary, so commands such as
+`ocs --query picker` continue to work.
 
 ## Configuration
 

@@ -18,10 +18,17 @@ pub(crate) struct Arguments {
   pub(crate) print: bool,
   #[arg(long, help = "Initial fuzzy-search query")]
   pub(crate) query: Option<String>,
+  #[command(subcommand)]
+  subcommand: Option<Subcommand>,
 }
 
 impl Arguments {
   pub(crate) fn run(self) -> Result {
+    if let Some(subcommand) = self.subcommand {
+      subcommand.run();
+      return Ok(());
+    }
+
     let config = Config::load()?;
 
     let storage = if let Some(database) = self.database {
