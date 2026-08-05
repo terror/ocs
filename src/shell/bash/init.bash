@@ -1,5 +1,3 @@
-stty -ixon 2>/dev/null
-
 ocs() {
   local session
 
@@ -29,5 +27,5 @@ _ocs_search() {
 }
 
 if [[ $- == *i* ]]; then
-  bind -x '"\C-s":_ocs_search'
+  bind -x '"\C-xs":_ocs_search'
 fi

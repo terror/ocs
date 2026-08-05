@@ -1,5 +1,3 @@
-stty -ixon 2>/dev/null
-
 ocs() {
   local session
 
@@ -35,4 +33,4 @@ _ocs_search() {
 }
 
 zle -N ocs-search _ocs_search
-bindkey '^S' ocs-search
+bindkey '^Xs' ocs-search
