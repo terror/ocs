@@ -15,6 +15,7 @@ use {
   session::Session,
   session_item::SessionItem,
   session_picker::SessionPicker,
+  shell::Shell,
   skim::prelude::*,
   std::{
     borrow::Cow,
@@ -31,6 +32,7 @@ use {
     BOLD_BRIGHT_WHITE, BOLD_GRAY, BOLD_YELLOW, DARK_GRAY, DIM, DIM_LIGHT_GRAY,
     GRAY, style,
   },
+  subcommand::Subcommand,
   time::Time,
 };
 
@@ -42,8 +44,10 @@ mod selection;
 mod session;
 mod session_item;
 mod session_picker;
+mod shell;
 mod storage;
 mod style;
+mod subcommand;
 mod time;
 
 type Result<T = (), E = anyhow::Error> = std::result::Result<T, E>;
