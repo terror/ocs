@@ -18,6 +18,8 @@ pub(crate) struct Arguments {
   pub(crate) print: bool,
   #[arg(long, help = "Initial fuzzy-search query")]
   pub(crate) query: Option<String>,
+  #[arg(long, hide = true, value_name = "ID", conflicts_with = "print")]
+  session: Option<String>,
   #[command(subcommand)]
   subcommand: Option<Subcommand>,
 }
@@ -40,6 +42,10 @@ impl Arguments {
     };
 
     storage.validate_schema()?;
+
+    if let Some(id) = self.session {
+      return storage.get_session(&id)?.open(&config, &storage);
+    }
 
     let directory = if self.all {
       None

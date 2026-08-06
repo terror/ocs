@@ -10,7 +10,7 @@ ocs() {
 
   [[ -n "$session" ]] || return
 
-  command opencode --session "$session"
+  command ocs --session "$session"
 }
 
 _ocs_search() {
@@ -21,7 +21,7 @@ _ocs_search() {
   if (( exit_code == 0 )) && [[ -n "$session" ]]; then
     READLINE_LINE=""
     READLINE_POINT=0
-    command opencode --session "$session"
+    command ocs --session "$session"
     exit_code="$?"
   fi
 
