@@ -377,47 +377,47 @@ mod tests {
     connection
       .execute_batch(
         r#"
-          CREATE TABLE session_v2 (
-            id TEXT NOT NULL,
-            directory TEXT NOT NULL,
-            parent_id TEXT,
-            slug TEXT NOT NULL,
-            title TEXT,
-            model TEXT,
-            cost REAL NOT NULL,
-            tokens_input INTEGER NOT NULL,
-            tokens_output INTEGER NOT NULL,
-            tokens_reasoning INTEGER NOT NULL,
-            tokens_cache_read INTEGER NOT NULL,
-            tokens_cache_write INTEGER NOT NULL,
-            time_created INTEGER NOT NULL,
-            time_updated INTEGER NOT NULL
-          );
+        CREATE TABLE session_v2 (
+          id TEXT NOT NULL,
+          directory TEXT NOT NULL,
+          parent_id TEXT,
+          slug TEXT NOT NULL,
+          title TEXT,
+          model TEXT,
+          cost REAL NOT NULL,
+          tokens_input INTEGER NOT NULL,
+          tokens_output INTEGER NOT NULL,
+          tokens_reasoning INTEGER NOT NULL,
+          tokens_cache_read INTEGER NOT NULL,
+          tokens_cache_write INTEGER NOT NULL,
+          time_created INTEGER NOT NULL,
+          time_updated INTEGER NOT NULL
+        );
 
-          CREATE TABLE session_message (
-            id TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            type TEXT NOT NULL,
-            seq INTEGER NOT NULL,
-            time_created INTEGER NOT NULL,
-            data TEXT NOT NULL
-          );
+        CREATE TABLE session_message (
+          id TEXT NOT NULL,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          seq INTEGER NOT NULL,
+          time_created INTEGER NOT NULL,
+          data TEXT NOT NULL
+        );
 
-          INSERT INTO session_v2 VALUES (
-            'ses_foo', '/tmp/foo', NULL, 'slug', 'Add picker',
-            '{"id":"model-foo","providerID":"example"}',
-            0.125, 1, 2, 3, 4, 5, 1, 2
-          );
+        INSERT INTO session_v2 VALUES (
+          'ses_foo', '/tmp/foo', NULL, 'slug', 'Add picker',
+          '{"id":"model-foo","providerID":"example"}',
+          0.125, 1, 2, 3, 4, 5, 1, 2
+        );
 
-          INSERT INTO session_message VALUES (
-            'msg_user', 'ses_foo', 'user', 1, 1,
-            '{"text":"Build a picker"}'
-          );
+        INSERT INTO session_message VALUES (
+          'msg_user', 'ses_foo', 'user', 1, 1,
+          '{"text":"Build a picker"}'
+        );
 
-          INSERT INTO session_message VALUES (
-            'msg_assistant', 'ses_foo', 'assistant', 2, 2,
-            '{"content":[{"type":"text","text":"Use skim"}]}'
-          );
+        INSERT INTO session_message VALUES (
+          'msg_assistant', 'ses_foo', 'assistant', 2, 2,
+          '{"content":[{"type":"text","text":"Use skim"}]}'
+        );
         "#,
       )
       .unwrap();
@@ -480,10 +480,10 @@ mod tests {
     connection
       .execute(
         "
-          INSERT INTO session_v2 VALUES (
-            'ses_bar', '/tmp/bar', NULL, 'bar', 'Bar', NULL,
-            0, 0, 0, 0, 0, 0, 3, 4
-          )
+        INSERT INTO session_v2 VALUES (
+          'ses_bar', '/tmp/bar', NULL, 'bar', 'Bar', NULL,
+          0, 0, 0, 0, 0, 0, 3, 4
+        )
         ",
         [],
       )
