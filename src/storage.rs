@@ -48,7 +48,15 @@ impl Storage {
         "could not determine an OpenCode data directory; pass --data-dir or --database",
       )?;
 
-    Self::new(data_home.join("opencode").join("opencode-next.db"))
+    let data_dir = data_home.join("opencode");
+
+    let database = data_dir.join("opencode-next.db");
+
+    Self::new(if database.exists() {
+      database
+    } else {
+      data_dir.join("opencode.db")
+    })
   }
 
   pub(crate) fn delete_session(&self, id: &str) -> Result {
@@ -67,6 +75,7 @@ impl Storage {
 
   pub(crate) fn get_session(&self, id: &str) -> Result<Session> {
     let connection = self.open()?;
+
     let mut session = connection
       .query_row(
         "
@@ -182,6 +191,7 @@ impl Storage {
     directory: Option<&Path>,
   ) -> Result<Vec<Session>> {
     let connection = self.open()?;
+
     let mut statement = connection
       .prepare(
         "
@@ -302,6 +312,7 @@ impl Storage {
 
   pub(crate) fn validate_schema(&self) -> Result {
     let connection = self.open()?;
+
     let tables = {
       let mut statement = connection
         .prepare("SELECT name FROM sqlite_schema WHERE type = 'table'")
@@ -317,6 +328,7 @@ impl Storage {
     let mut statement = connection
       .prepare("SELECT name FROM pragma_table_info(?)")
       .context("could not inspect OpenCode schema")?;
+
     let mut missing = Vec::new();
 
     for (table, required_columns) in REQUIRED_SCHEMA {
@@ -357,7 +369,9 @@ mod tests {
 
   fn database() -> (tempfile::TempDir, Connection) {
     let directory = tempfile::tempdir().unwrap();
+
     let database = directory.path().join("opencode.db");
+
     let connection = Connection::open(database).unwrap();
 
     connection
@@ -417,7 +431,12 @@ mod tests {
 
     connection
       .execute(
-        "INSERT INTO session_v2 VALUES ('ses_child', '/tmp/foo', 'ses_foo', 'child', 'Child', NULL, 0, 0, 0, 0, 0, 0, 3, 4)",
+        "
+        INSERT INTO session_v2 VALUES (
+          'ses_child', '/tmp/foo', 'ses_foo', 'child', 'Child', NULL,
+          0, 0, 0, 0, 0, 0, 3, 4
+        )
+        ",
         [],
       )
       .unwrap();
@@ -427,8 +446,31 @@ mod tests {
       .sessions(None)
       .unwrap();
 
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].id, "ses_foo");
+    assert_eq!(
+      sessions,
+      vec![Session {
+        cost: 0.125,
+        directory: "/tmp/foo".into(),
+        id: "ses_foo".into(),
+        messages: vec![Message {
+          id: "msg_user".into(),
+          role: "user".into(),
+          session_id: "ses_foo".into(),
+          text: "Build a picker".into(),
+          time: Time {
+            created: 1,
+            updated: 0,
+          },
+        }],
+        model: Some("model-foo".into()),
+        time: Time {
+          created: 1,
+          updated: 2,
+        },
+        title: "Add picker".into(),
+        tokens: 15,
+      }]
+    );
   }
 
   #[test]
@@ -437,7 +479,12 @@ mod tests {
 
     connection
       .execute(
-        "INSERT INTO session_v2 VALUES ('ses_bar', '/tmp/bar', NULL, 'bar', 'Bar', NULL, 0, 0, 0, 0, 0, 0, 3, 4)",
+        "
+          INSERT INTO session_v2 VALUES (
+            'ses_bar', '/tmp/bar', NULL, 'bar', 'Bar', NULL,
+            0, 0, 0, 0, 0, 0, 3, 4
+          )
+        ",
         [],
       )
       .unwrap();
@@ -447,8 +494,22 @@ mod tests {
       .sessions(Some(Path::new("/tmp/bar")))
       .unwrap();
 
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].id, "ses_bar");
+    assert_eq!(
+      sessions,
+      vec![Session {
+        cost: 0.0,
+        directory: "/tmp/bar".into(),
+        id: "ses_bar".into(),
+        messages: Vec::new(),
+        model: None,
+        time: Time {
+          created: 3,
+          updated: 4,
+        },
+        title: "Bar".into(),
+        tokens: 0,
+      }]
+    );
   }
 
   #[test]
@@ -460,9 +521,32 @@ mod tests {
 
     let sessions = storage.sessions(None).unwrap();
 
-    assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].model.as_deref(), Some("model-foo"));
-    assert_eq!(sessions[0].tokens, 15);
+    assert_eq!(
+      sessions,
+      vec![Session {
+        cost: 0.125,
+        directory: "/tmp/foo".into(),
+        id: "ses_foo".into(),
+        messages: vec![Message {
+          id: "msg_user".into(),
+          role: "user".into(),
+          session_id: "ses_foo".into(),
+          text: "Build a picker".into(),
+          time: Time {
+            created: 1,
+            updated: 0,
+          },
+        }],
+        model: Some("model-foo".into()),
+        time: Time {
+          created: 1,
+          updated: 2,
+        },
+        title: "Add picker".into(),
+        tokens: 15,
+      }]
+    );
+
     assert_eq!(
       sessions[0].search_text(),
       "Add picker\n/tmp/foo\nses_foo\nBuild a picker"
@@ -470,9 +554,43 @@ mod tests {
 
     let session = storage.get_session("ses_foo").unwrap();
 
-    assert_eq!(session.messages.len(), 2);
-    assert_eq!(session.messages[0].text, "Build a picker");
-    assert_eq!(session.messages[1].text, "Use skim");
+    assert_eq!(
+      session,
+      Session {
+        cost: 0.125,
+        directory: "/tmp/foo".into(),
+        id: "ses_foo".into(),
+        messages: vec![
+          Message {
+            id: "msg_user".into(),
+            role: "user".into(),
+            session_id: "ses_foo".into(),
+            text: "Build a picker".into(),
+            time: Time {
+              created: 1,
+              updated: 0,
+            },
+          },
+          Message {
+            id: "msg_assistant".into(),
+            role: "assistant".into(),
+            session_id: "ses_foo".into(),
+            text: "Use skim".into(),
+            time: Time {
+              created: 2,
+              updated: 0,
+            },
+          },
+        ],
+        model: Some("model-foo".into()),
+        time: Time {
+          created: 1,
+          updated: 2,
+        },
+        title: "Add picker".into(),
+        tokens: 15,
+      }
+    );
   }
 
   #[test]
@@ -491,6 +609,7 @@ mod tests {
       .unwrap();
 
     let database = temp.path().join("opencode.db");
+
     let error = Storage::new(database.clone())
       .unwrap()
       .validate_schema()

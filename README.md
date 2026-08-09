@@ -135,9 +135,10 @@ affect database discovery or session deletion commands.
 
 ## Database
 
-By default, `ocs` uses `OPENCODE_DB` when set. Otherwise, it uses
-`opencode-next.db` in `$XDG_DATA_HOME/opencode`, or
-`$HOME/.local/share/opencode` when `XDG_DATA_HOME` is unset.
+By default, `ocs` uses `OPENCODE_DB` when set. Otherwise, it prefers
+`opencode-next.db` and falls back to `opencode.db` in
+`$XDG_DATA_HOME/opencode`, or `$HOME/.local/share/opencode` when
+`XDG_DATA_HOME` is unset.
 
 Pass `--database` to use a specific OpenCode database file, such as a
 separate profile or a copied database:
