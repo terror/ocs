@@ -140,7 +140,6 @@ mod tests {
 
   fn session() -> Session {
     Session {
-      backend: Backend::V1,
       cost: 0.125,
       directory: "/tmp/bar".into(),
       id: "ses_foo".into(),

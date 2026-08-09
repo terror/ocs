@@ -5,7 +5,6 @@ const MAX_SEARCH_MESSAGES: usize = 4;
 
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct Session {
-  pub(crate) backend: Backend,
   pub(crate) cost: f64,
   pub(crate) directory: String,
   pub(crate) id: String,
@@ -14,13 +13,6 @@ pub(crate) struct Session {
   pub(crate) time: Time,
   pub(crate) title: String,
   pub(crate) tokens: u64,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(crate) enum Backend {
-  #[default]
-  V1,
-  V2,
 }
 
 impl Session {
@@ -37,10 +29,7 @@ impl Session {
   }
 
   fn open_command(&self, config: &Config, storage: &Storage) -> Command {
-    let mut command = Command::new(match self.backend {
-      Backend::V1 => "opencode",
-      Backend::V2 => "opencode2",
-    });
+    let mut command = Command::new("opencode2");
 
     command
       .arg("--session")
@@ -174,7 +163,6 @@ mod tests {
   #[test]
   fn open_uses_v2_executable() {
     let session = Session {
-      backend: Backend::V2,
       id: "ses_foo".into(),
       ..Default::default()
     };
@@ -216,7 +204,6 @@ mod tests {
     let text = format!("{}bar", "é".repeat(MAX_SEARCH_MESSAGE_CHARS));
 
     let session = Session {
-      backend: Backend::V1,
       cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),
@@ -245,7 +232,6 @@ mod tests {
   #[test]
   fn search_text_uses_recent_user_messages() {
     let session = Session {
-      backend: Backend::V1,
       cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),
