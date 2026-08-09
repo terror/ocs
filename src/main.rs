@@ -12,7 +12,7 @@ use {
   rusqlite::{Connection, OpenFlags, OptionalExtension},
   selection::Selection,
   serde::{Deserialize, Serialize},
-  session::Session,
+  session::{Backend, Session},
   session_item::SessionItem,
   session_picker::SessionPicker,
   shell::Shell,

@@ -5,6 +5,7 @@ const MAX_SEARCH_MESSAGES: usize = 4;
 
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct Session {
+  pub(crate) backend: Backend,
   pub(crate) cost: f64,
   pub(crate) directory: String,
   pub(crate) id: String,
@@ -15,21 +16,31 @@ pub(crate) struct Session {
   pub(crate) tokens: u64,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) enum Backend {
+  #[default]
+  V1,
+  V2,
+}
+
 impl Session {
   pub(crate) fn open(&self, config: &Config, storage: &Storage) -> Result {
     let mut command = self.open_command(config, storage);
 
-    let status = command.status().context("could not start opencode")?;
+    let status = command.status().context("could not start OpenCode")?;
 
     if !status.success() {
-      bail!("opencode exited with {status}");
+      bail!("OpenCode exited with {status}");
     }
 
     Ok(())
   }
 
   fn open_command(&self, config: &Config, storage: &Storage) -> Command {
-    let mut command = Command::new("opencode");
+    let mut command = Command::new(match self.backend {
+      Backend::V1 => "opencode",
+      Backend::V2 => "opencode2",
+    });
 
     command
       .arg("--session")
@@ -161,6 +172,24 @@ mod tests {
   }
 
   #[test]
+  fn open_uses_v2_executable() {
+    let session = Session {
+      backend: Backend::V2,
+      id: "ses_foo".into(),
+      ..Default::default()
+    };
+
+    let storage = Storage::new("foo.db".into()).unwrap();
+
+    assert_eq!(
+      session
+        .open_command(&Config::default(), &storage)
+        .get_program(),
+      "opencode2"
+    );
+  }
+
+  #[test]
   fn open_forwards_configured_arguments() {
     let session = Session {
       id: "ses_foo".into(),
@@ -187,6 +216,7 @@ mod tests {
     let text = format!("{}bar", "é".repeat(MAX_SEARCH_MESSAGE_CHARS));
 
     let session = Session {
+      backend: Backend::V1,
       cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),
@@ -215,6 +245,7 @@ mod tests {
   #[test]
   fn search_text_uses_recent_user_messages() {
     let session = Session {
+      backend: Backend::V1,
       cost: 0.0,
       directory: "bar".into(),
       id: "ses_foo".into(),

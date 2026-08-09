@@ -19,6 +19,31 @@ const REQUIRED_SCHEMA: &[(&str, &[&str])] = &[
   ),
 ];
 
+const REQUIRED_V2_SCHEMA: &[(&str, &[&str])] = &[
+  (
+    "session_v2",
+    &[
+      "id",
+      "directory",
+      "parent_id",
+      "title",
+      "model",
+      "cost",
+      "tokens_input",
+      "tokens_output",
+      "tokens_reasoning",
+      "tokens_cache_read",
+      "tokens_cache_write",
+      "time_created",
+      "time_updated",
+    ],
+  ),
+  (
+    "session_message",
+    &["id", "session_id", "type", "seq", "time_created", "data"],
+  ),
+];
+
 pub(crate) struct Storage {
   pub(crate) database: PathBuf,
 }
@@ -38,18 +63,38 @@ impl Storage {
         "could not determine an OpenCode data directory; pass --data-dir or --database",
       )?;
 
-    Self::new(data_home.join("opencode").join("opencode.db"))
+    let data_directory = data_home.join("opencode");
+    let v1_database = data_directory.join("opencode.db");
+    let v2_database = data_directory.join("opencode-next.db");
+
+    Self::new(if !v1_database.exists() && v2_database.exists() {
+      v2_database
+    } else {
+      v1_database
+    })
   }
 
   pub(crate) fn delete_session(&self, id: &str) -> Result {
-    let status = Command::new("opencode")
-      .args(["session", "delete", id])
+    let session = self.get_session(id)?;
+    let mut command = Command::new(match session.backend {
+      Backend::V1 => "opencode",
+      Backend::V2 => "opencode2",
+    });
+
+    match session.backend {
+      Backend::V1 => command.args(["session", "delete", id]),
+      Backend::V2 => {
+        command.args(["api", "delete", &format!("/api/session/{id}")])
+      }
+    };
+
+    let status = command
       .env("OPENCODE_DB", &self.database)
       .status()
-      .context("could not start opencode")?;
+      .context("could not start OpenCode")?;
 
     if !status.success() {
-      bail!("opencode exited with {status}");
+      bail!("OpenCode exited with {status}");
     }
 
     Ok(())
@@ -81,6 +126,16 @@ impl Storage {
         self.database.display()
       )
     })?;
+
+    if Self::has_table(&connection, "session_v2")?
+      && let Some(session) = Self::get_v2_session(&connection, id)?
+    {
+      return Ok(session);
+    }
+
+    if !Self::has_table(&connection, "session")? {
+      bail!("selected session was not indexed");
+    }
 
     let session = connection
       .query_row(
@@ -189,6 +244,109 @@ impl Storage {
     Ok(session)
   }
 
+  fn get_v2_session(
+    connection: &Connection,
+    id: &str,
+  ) -> Result<Option<Session>> {
+    let session = connection
+      .query_row(
+        "
+          SELECT
+            id,
+            directory,
+            COALESCE(title, slug),
+            time_created,
+            time_updated,
+            cost,
+            COALESCE(json_extract(model, '$.id'), ''),
+            tokens_input + tokens_output + tokens_reasoning
+              + tokens_cache_read + tokens_cache_write
+          FROM session_v2
+          WHERE id = ?
+        ",
+        [id],
+        |row| {
+          let model = row.get::<_, String>(6)?;
+
+          Ok(Session {
+            backend: Backend::V2,
+            cost: row.get(5)?,
+            directory: row.get(1)?,
+            id: row.get(0)?,
+            model: (!model.is_empty()).then_some(model),
+            time: Time {
+              created: row.get_u64(3)?,
+              updated: row.get_u64(4)?,
+            },
+            title: row.get(2)?,
+            tokens: row.get_u64(7)?,
+            ..Default::default()
+          })
+        },
+      )
+      .optional()
+      .context("could not query OpenCode V2 session")?;
+
+    let Some(mut session) = session else {
+      return Ok(None);
+    };
+
+    let mut statement = connection
+      .prepare(
+        "
+          SELECT
+            id,
+            type,
+            time_created,
+            CASE
+              WHEN type = 'assistant' THEN COALESCE((
+                SELECT group_concat(json_extract(value, '$.text'), char(10))
+                FROM json_each(json_extract(data, '$.content'))
+                WHERE json_extract(value, '$.type') = 'text'
+              ), '')
+              ELSE COALESCE(json_extract(data, '$.text'), '')
+            END
+          FROM session_message
+          WHERE session_id = ?
+          ORDER BY seq
+        ",
+      )
+      .context("could not query OpenCode V2 messages")?;
+
+    let messages = statement
+      .query_map([id], |row| {
+        Ok(Message {
+          id: row.get(0)?,
+          role: row.get(1)?,
+          session_id: id.into(),
+          text: row.get(3)?,
+          time: Time {
+            created: row.get_u64(2)?,
+            updated: 0,
+          },
+        })
+      })
+      .context("could not read OpenCode V2 messages")?
+      .collect::<rusqlite::Result<Vec<_>>>()
+      .context("could not read OpenCode V2 messages")?;
+
+    for message in messages {
+      session.push_message(message);
+    }
+
+    Ok(Some(session))
+  }
+
+  fn has_table(connection: &Connection, table: &str) -> Result<bool> {
+    connection
+      .query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?)",
+        [table],
+        |row| row.get(0),
+      )
+      .context("could not inspect OpenCode schema")
+  }
+
   pub(crate) fn new(database: PathBuf) -> Result<Self> {
     let database = if database.is_absolute() {
       database
@@ -215,6 +373,30 @@ impl Storage {
         self.database.display()
       )
     })?;
+
+    if !Self::has_table(&connection, "session")? {
+      let mut sessions = Self::v2_sessions(&connection, directory)?;
+
+      sessions.sort_by(|left, right| {
+        right
+          .updated()
+          .cmp(&left.updated())
+          .then_with(|| left.title.cmp(&right.title))
+      });
+
+      if sessions.is_empty() {
+        match directory {
+          Some(directory) => {
+            bail!("no OpenCode sessions found in {}", directory.display());
+          }
+          None => {
+            bail!("no OpenCode sessions found in {}", self.database.display());
+          }
+        }
+      }
+
+      return Ok(sessions);
+    }
 
     let mut sessions = {
       let mut statement = connection
@@ -418,6 +600,17 @@ impl Storage {
       session.sort_messages();
     }
 
+    if Self::has_table(&connection, "session_v2")? {
+      let v2_sessions = Self::v2_sessions(&connection, directory)?;
+      let v2_ids = v2_sessions
+        .iter()
+        .map(|session| session.id.as_str())
+        .collect::<HashSet<_>>();
+
+      sessions.retain(|session| !v2_ids.contains(session.id.as_str()));
+      sessions.extend(v2_sessions);
+    }
+
     sessions.sort_by(|left, right| {
       right
         .updated()
@@ -434,6 +627,111 @@ impl Storage {
           bail!("no OpenCode sessions found in {}", self.database.display())
         }
       }
+    }
+
+    Ok(sessions)
+  }
+
+  fn v2_sessions(
+    connection: &Connection,
+    directory: Option<&Path>,
+  ) -> Result<Vec<Session>> {
+    let mut statement = connection
+      .prepare(
+        "
+          SELECT
+            id,
+            directory,
+            COALESCE(title, slug),
+            time_created,
+            time_updated,
+            cost,
+            COALESCE(json_extract(model, '$.id'), ''),
+            tokens_input + tokens_output + tokens_reasoning
+              + tokens_cache_read + tokens_cache_write
+          FROM session_v2
+          WHERE parent_id IS NULL
+        ",
+      )
+      .context("could not query OpenCode V2 sessions")?;
+
+    let mut sessions = statement
+      .query_map([], |row| {
+        let model = row.get::<_, String>(6)?;
+
+        Ok(Session {
+          backend: Backend::V2,
+          cost: row.get(5)?,
+          directory: row.get(1)?,
+          id: row.get(0)?,
+          model: (!model.is_empty()).then_some(model),
+          time: Time {
+            created: row.get_u64(3)?,
+            updated: row.get_u64(4)?,
+          },
+          title: row.get(2)?,
+          tokens: row.get_u64(7)?,
+          ..Default::default()
+        })
+      })
+      .context("could not read OpenCode V2 sessions")?
+      .collect::<rusqlite::Result<Vec<_>>>()
+      .context("could not read OpenCode V2 sessions")?;
+
+    if let Some(directory) = directory {
+      sessions.retain(|session| Path::new(&session.directory) == directory);
+    }
+
+    let session_indexes = sessions
+      .iter()
+      .enumerate()
+      .map(|(index, session)| (session.id.clone(), index))
+      .collect::<HashMap<_, _>>();
+
+    let mut statement = connection
+      .prepare(
+        "
+          SELECT id, session_id, time_created, COALESCE(json_extract(data, '$.text'), '')
+          FROM (
+            SELECT
+              *,
+              ROW_NUMBER() OVER (
+                PARTITION BY session_id
+                ORDER BY seq DESC
+              ) AS position
+            FROM session_message
+            WHERE type = 'user'
+          )
+          WHERE position <= 4
+        ",
+      )
+      .context("could not query OpenCode V2 messages")?;
+
+    let messages = statement
+      .query_map([], |row| {
+        Ok(Message {
+          id: row.get(0)?,
+          session_id: row.get(1)?,
+          role: "user".into(),
+          text: row.get(3)?,
+          time: Time {
+            created: row.get_u64(2)?,
+            updated: 0,
+          },
+        })
+      })
+      .context("could not read OpenCode V2 messages")?
+      .collect::<rusqlite::Result<Vec<_>>>()
+      .context("could not read OpenCode V2 messages")?;
+
+    for message in messages {
+      if let Some(&index) = session_indexes.get(&message.session_id) {
+        sessions[index].push_message(message);
+      }
+    }
+
+    for session in &mut sessions {
+      session.sort_messages();
     }
 
     Ok(sessions)
@@ -469,7 +767,26 @@ impl Storage {
 
     let mut missing = Vec::new();
 
-    for (table, required_columns) in REQUIRED_SCHEMA {
+    let mut schemas = Vec::new();
+
+    if tables.contains("session") {
+      schemas.push(REQUIRED_SCHEMA);
+    }
+
+    if tables.contains("session_v2") {
+      schemas.push(REQUIRED_V2_SCHEMA);
+    }
+
+    if schemas.is_empty() {
+      bail!(
+        "unsupported OpenCode schema in {}: missing table `session` or table \
+         `session_v2`; update ocs or use --database to select a compatible \
+         OpenCode database",
+        self.database.display(),
+      );
+    }
+
+    for (table, required_columns) in schemas.into_iter().flatten() {
       if !tables.contains(*table) {
         missing.push(format!("table `{table}`"));
         continue;
@@ -585,6 +902,40 @@ mod tests {
     (directory, connection)
   }
 
+  fn create_v2_schema(connection: &Connection) {
+    connection
+      .execute_batch(
+        r"
+          CREATE TABLE session_v2 (
+            id TEXT NOT NULL,
+            directory TEXT NOT NULL,
+            parent_id TEXT,
+            slug TEXT NOT NULL,
+            title TEXT,
+            model TEXT,
+            cost REAL NOT NULL,
+            tokens_input INTEGER NOT NULL,
+            tokens_output INTEGER NOT NULL,
+            tokens_reasoning INTEGER NOT NULL,
+            tokens_cache_read INTEGER NOT NULL,
+            tokens_cache_write INTEGER NOT NULL,
+            time_created INTEGER NOT NULL,
+            time_updated INTEGER NOT NULL
+          );
+
+          CREATE TABLE session_message (
+            id TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            seq INTEGER NOT NULL,
+            time_created INTEGER NOT NULL,
+            data TEXT NOT NULL
+          );
+        ",
+      )
+      .unwrap();
+  }
+
   #[test]
   fn excludes_subagent_sessions() {
     let (temp, connection) = database();
@@ -604,6 +955,7 @@ mod tests {
     assert_eq!(
       sessions,
       vec![Session {
+        backend: Backend::V1,
         cost: 0.375,
         directory: "/tmp/foo".into(),
         id: "ses_foo".into(),
@@ -660,6 +1012,105 @@ mod tests {
   }
 
   #[test]
+  fn indexes_v2_sessions() {
+    let directory = tempfile::tempdir().unwrap();
+    let database = directory.path().join("opencode.db");
+    let connection = Connection::open(&database).unwrap();
+
+    create_v2_schema(&connection);
+
+    connection
+      .execute_batch(
+        r#"
+          INSERT INTO session_v2 VALUES (
+            'ses_v2',
+            '/tmp/foo',
+            NULL,
+            'v2-slug',
+            'V2 session',
+            '{"id":"model-v2","providerID":"example"}',
+            0.5,
+            1,
+            2,
+            3,
+            4,
+            5,
+            10,
+            20
+          );
+
+          INSERT INTO session_message VALUES (
+            'msg_user',
+            'ses_v2',
+            'user',
+            1,
+            11,
+            '{"text":"Build V2 support"}'
+          );
+
+          INSERT INTO session_message VALUES (
+            'msg_assistant',
+            'ses_v2',
+            'assistant',
+            2,
+            12,
+            '{"content":[{"type":"text","text":"Use session_v2"}]}'
+          );
+        "#,
+      )
+      .unwrap();
+
+    let storage = Storage::new(database).unwrap();
+
+    storage.validate_schema().unwrap();
+
+    let sessions = storage.sessions(None).unwrap();
+
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].backend, Backend::V2);
+    assert_eq!(sessions[0].model.as_deref(), Some("model-v2"));
+    assert_eq!(sessions[0].tokens, 15);
+    assert_eq!(
+      sessions[0].search_text(),
+      "V2 session\n/tmp/foo\nses_v2\nBuild V2 support"
+    );
+
+    let session = storage.get_session("ses_v2").unwrap();
+
+    assert_eq!(session.messages.len(), 2);
+    assert_eq!(session.messages[0].text, "Build V2 support");
+    assert_eq!(session.messages[1].text, "Use session_v2");
+  }
+
+  #[test]
+  fn prefers_migrated_v2_sessions() {
+    let (temp, connection) = database();
+
+    create_v2_schema(&connection);
+
+    connection
+      .execute(
+        "
+          INSERT INTO session_v2 VALUES (
+            'ses_foo', '/tmp/foo', NULL, 'slug', 'Migrated', NULL,
+            0, 0, 0, 0, 0, 0, 1, 3
+          )
+        ",
+        [],
+      )
+      .unwrap();
+
+    let sessions = Storage::new(temp.path().join("opencode.db"))
+      .unwrap()
+      .sessions(None)
+      .unwrap();
+
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].backend, Backend::V2);
+    assert_eq!(sessions[0].title, "Migrated");
+  }
+
+  #[test]
   fn indexes_sqlite_sessions() {
     let (temp, _) = database();
 
@@ -672,6 +1123,7 @@ mod tests {
     assert_eq!(
       sessions,
       vec![Session {
+        backend: Backend::V1,
         cost: 0.375,
         directory: "/tmp/foo".into(),
         id: "ses_foo".into(),
