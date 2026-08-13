@@ -19,10 +19,10 @@ impl Session {
   pub(crate) fn open(&self, config: &Config, storage: &Storage) -> Result {
     let mut command = self.open_command(config, storage);
 
-    let status = command.status().context("could not start OpenCode")?;
+    let status = command.status().context("could not start opencode")?;
 
     if !status.success() {
-      bail!("OpenCode exited with {status}");
+      bail!("opencode exited with {status}");
     }
 
     Ok(())
