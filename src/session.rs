@@ -29,7 +29,7 @@ impl Session {
   }
 
   fn open_command(&self, config: &Config, storage: &Storage) -> Command {
-    let mut command = Command::new("opencode");
+    let mut command = Command::new("opencode2");
 
     command
       .arg("--session")
@@ -140,6 +140,28 @@ mod tests {
   use super::*;
 
   #[test]
+  fn open_forwards_configured_arguments() {
+    let session = Session {
+      id: "ses_foo".into(),
+      ..Default::default()
+    };
+
+    let config = Config {
+      opencode_args: vec!["--auto".into(), "--model=foo bar".into()],
+    };
+
+    let storage = Storage::new("foo.db".into()).unwrap();
+
+    assert_eq!(
+      session
+        .open_command(&config, &storage)
+        .get_args()
+        .collect::<Vec<_>>(),
+      ["--session", "ses_foo", "--auto", "--model=foo bar"],
+    );
+  }
+
+  #[test]
   fn open_forwards_database() {
     let session = Session {
       directory: "bar".into(),
@@ -161,24 +183,19 @@ mod tests {
   }
 
   #[test]
-  fn open_forwards_configured_arguments() {
+  fn open_uses_v2_executable() {
     let session = Session {
       id: "ses_foo".into(),
       ..Default::default()
-    };
-
-    let config = Config {
-      opencode_args: vec!["--auto".into(), "--model=foo bar".into()],
     };
 
     let storage = Storage::new("foo.db".into()).unwrap();
 
     assert_eq!(
       session
-        .open_command(&config, &storage)
-        .get_args()
-        .collect::<Vec<_>>(),
-      ["--session", "ses_foo", "--auto", "--model=foo bar"],
+        .open_command(&Config::default(), &storage)
+        .get_program(),
+      "opencode2"
     );
   }
 

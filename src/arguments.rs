@@ -36,7 +36,13 @@ impl Arguments {
     let storage = if let Some(database) = self.database {
       Storage::new(database)?
     } else if let Some(data_dir) = self.data_dir {
-      Storage::new(data_dir.join("opencode.db"))?
+      let database = data_dir.join("opencode-next.db");
+
+      Storage::new(if database.exists() {
+        database
+      } else {
+        data_dir.join("opencode.db")
+      })?
     } else {
       Storage::default()?
     };
