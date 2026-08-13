@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/terror/ocs/releases/tag/0.2.0) - 2026-08-12
+
+### Added
+
+- Migrate to new opencode session format ([#38](https://github.com/terror/ocs/pull/38) by [terror](https://github.com/terror))
+
+### Fixed
+
+- Honor opencode arguments in shell integrations ([#35](https://github.com/terror/ocs/pull/35) by [terror](https://github.com/terror))
+
+### Misc
+
+- Bump clap from 4.6.4 to 4.6.5 ([#36](https://github.com/terror/ocs/pull/36) by [app/dependabot](https://github.com/app/dependabot))
+
 ## [0.1.5](https://github.com/terror/ocs/releases/tag/0.1.5) - 2026-08-05
 
 ### Added
